@@ -29,12 +29,11 @@ ACCOUNT4 = {
 
 
 class UtilTest(unittest.TestCase):
-    def test_set_home(self):
-        home = 'HEHE'
-        cfg.set_home(home)
-        self.assertEqual(os.path.join(home, cfg._CONFIG_DIR), cfg.CONFIG_DIR)
-        self.assertEqual(os.path.join(home, cfg._CONFIG_DIR,
-                                      cfg._ACCOUNT_FILE), cfg.ACCOUNT_FILE)
+    def test_set_config_dir(self):
+        config_dir = 'HEHE'
+        cfg.set_config_dir(config_dir)
+        self.assertEqual(config_dir, cfg.CONFIG_DIR)
+        self.assertEqual(os.path.join(config_dir, cfg._ACCOUNT_FILE), cfg.ACCOUNT_FILE)
 
 
 class AccountTest(unittest.TestCase):
@@ -122,7 +121,7 @@ class CommandTest(unittest.TestCase):
 
 class FunctionalTest(unittest.TestCase):
     def setUp(self):
-        cfg.set_home('.')
+        cfg.set_config_dir('/tmp/.sshm')
 
     def tearDown(self):
         shutil.rmtree(cfg.CONFIG_DIR)

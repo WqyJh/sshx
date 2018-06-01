@@ -5,7 +5,7 @@ import shutil
 
 from .account import *
 
-HOME = os.environ['USERPROFILE'] if os.name == 'nt' else os.environ['HOME']
+
 
 _CONFIG_DIR = '.sshm'
 _ACCOUNT_FILE = '.accounts'
@@ -13,18 +13,21 @@ _ACCOUNT_FILE = '.accounts'
 CONFIG_DIR = ''
 ACCOUNT_FILE = ''
 
-
-def set_home(home):
-    global HOME
+def set_config_dir(config_dir):
     global CONFIG_DIR
     global ACCOUNT_FILE
 
-    HOME = home
-    CONFIG_DIR = os.path.join(HOME, _CONFIG_DIR)
+    CONFIG_DIR = config_dir
     ACCOUNT_FILE = os.path.join(CONFIG_DIR, _ACCOUNT_FILE)
 
+ENV_CONFIG_DIR = 'SSHM_DIR'
 
-set_home(HOME)
+if ENV_CONFIG_DIR in os.environ:
+    set_config_dir(ENV_CONFIG_DIR)
+else:
+    HOME = os.environ['USERPROFILE'] if os.name == 'nt' else os.environ['HOME']
+    set_config_dir(os.path.join(HOME, _CONFIG_DIR))
+
 
 STATUS_INITED = 0
 STATUS_BROKEN = 1
