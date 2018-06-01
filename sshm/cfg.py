@@ -3,7 +3,7 @@ import stat
 import json
 import shutil
 
-from account import *
+from .account import *
 
 HOME = os.environ['USERPROFILE'] if os.name == 'nt' else os.environ['HOME']
 

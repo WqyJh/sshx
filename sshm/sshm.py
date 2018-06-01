@@ -2,8 +2,8 @@ import os
 import sys
 import argparse
 
-import sshwrap
-import cfg
+from . import sshwrap
+from . import cfg
 
 MSG_CONFIG_BROKEN = {
     'status': 'fail',
@@ -207,7 +207,7 @@ parser_connect = subparsers.add_parser('connect',
 parser_connect.add_argument('name', type=str)
 
 
-def main(argv):
+def invoke(argv):
     args = parser.parse_args(argv)
 
     msg = None
@@ -236,5 +236,9 @@ def main(argv):
         print(msg)
 
 
+def main():
+    invoke(sys.argv[1:])
+
+
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()

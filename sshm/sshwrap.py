@@ -1,5 +1,5 @@
 import paramiko
-from interactive import interactive_shell
+from .interactive import interactive_shell
 
 
 def sshp(host, port, user, password):

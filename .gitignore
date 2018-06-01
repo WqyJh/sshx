@@ -1,2 +1,7 @@
 *.py[cdo]
 .vscode/
+*.egg
+.eggs
+*.egg-info/
+build/
+dist/
