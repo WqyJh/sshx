@@ -141,7 +141,10 @@ def handle_list():
 def handle_connect(name):
     account = cfg.read_account(name)
     if not account:
-        print('No account found named by %s, please check the input.' % name)
+        return {
+            'status': 'fail',
+            'msg': 'No account found named by "%s", please check the input.' % name,
+        }
 
     if account['identity']:
         sshwrap.sshi(account['host'], account['port'],
@@ -233,7 +236,7 @@ def invoke(argv):
         msg = handle_connect(args.name)
 
     if msg:
-        print(msg)
+        print('[%s]: %s' % (msg['status'], msg['msg']))
 
 
 def main():
