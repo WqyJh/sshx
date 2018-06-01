@@ -63,11 +63,11 @@ def posix_shell(chan):
             r, w, e = select.select([chan, sys.stdin], [], [])
             if chan in r:
                 try:
-                    x = u(chan.recv(1024))
+                    x = chan.recv(1024)
                     if len(x) == 0:
-                        sys.stdout.write("\r\n*** EOF\r\n")
+                        #sys.stdout.write("\r\n*** EOF\r\n")
                         break
-                    # os.write(sys.stdout.fileno(), x)
+                    
                     sys.stdout.write(x.decode('utf-8'))
                     sys.stdout.flush()
                 except socket.timeout:
@@ -77,6 +77,12 @@ def posix_shell(chan):
                 if len(x) == 0:
                     break
                 chan.send(x)
+        
+                # There will be a '\x1b[44;17R' before every new line.
+                # I don't know what it is. Just throw it.
+                if x == '\x1b':
+                    x = sys.stdin.read(7)
+                    #print(x)
 
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, oldtty)
