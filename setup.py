@@ -14,6 +14,7 @@ win32_requirements = [
 
 install_requires = [
     'paramiko',
+    'itsdangerous',
 ]
 
 if os.name == 'nt':
@@ -25,7 +26,7 @@ if os.name == 'nt':
 
 def load_test_suite():
     test_loader = unittest.TestLoader()
-    test_suite = test_loader.discover('.')
+    test_suite = test_loader.discover('sshm/tests')
     return test_suite
 
 
@@ -39,7 +40,7 @@ entry_points = {
 
 setuptools.setup(
     name="sshm",
-    version="0.0.4",
+    version="0.0.5",
     author="wqy",
     author_email="qiyingwangwqy@gmail.com",
     description="SSH with account managing",

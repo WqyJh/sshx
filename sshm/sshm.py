@@ -2,8 +2,9 @@ import os
 import sys
 import argparse
 
-from . import sshwrap
 from . import cfg
+from . import utils
+from . import sshwrap
 
 MSG_CONFIG_BROKEN = {
     'status': 'fail',
@@ -16,21 +17,19 @@ MSG_CONFIG_NOT_FOUND = {
 }
 
 
-def perform_init(lazy=False, phrase=''):
+def perform_init():
+    os.makedirs(cfg.CONFIG_DIR, mode=0o700)
 
-    os.mkdir(cfg.CONFIG_DIR, mode=0o700)
-    if not lazy:
-        phrase = None
+    phrase = utils.random_str(32)
 
     config = {
-        'lazy': lazy,
         'phrase': phrase,
         'accounts': [],
     }
     cfg.write_config(config)
 
 
-def handle_init(lazy=False, force=False, phrase=''):
+def handle_init(force=False):
     check = cfg.check_init()
     msg = {
         'status': 'unknown',
@@ -38,7 +37,7 @@ def handle_init(lazy=False, force=False, phrase=''):
     }
 
     if check == cfg.STATUS_UNINIT:
-        perform_init(lazy, phrase)
+        perform_init()
         msg = {
             'status': 'success',
             'msg': 'Initialized.',
@@ -46,7 +45,7 @@ def handle_init(lazy=False, force=False, phrase=''):
     elif check == cfg.STATUS_INITED:
         if force:
             cfg.remove_all_config()
-            perform_init(lazy, phrase)
+            perform_init()
             msg = {
                 'status': 'success',
                 'msg': 'Force initialized.',
@@ -58,7 +57,7 @@ def handle_init(lazy=False, force=False, phrase=''):
             }
     elif check == cfg.STATUS_BROKEN:
         cfg.remove_all_config()
-        perform_init(lazy, phrase)
+        perform_init()
         msg = {
             'status': 'success',
             'msg': 'Re-initialized.',
@@ -168,12 +167,8 @@ subparsers = parser.add_subparsers(title='command',
 
 parser_init = subparsers.add_parser('init',
                                     help='initialize the account storage')
-parser_init.add_argument('--lazy', action='store_true',
-                         help='initialize in lazy mode, which would store your passphrase in local file')
 parser_init.add_argument('-f', '--force', action='store_true',
-                         help='delete previous existing files in %s' % cfg.CONFIG_DIR)
-parser_init.add_argument('-p', '--phrase', default='',
-                         help='passphrase to encrypt your account')
+                         help='delete previous existing files in %s and re-init' % cfg.CONFIG_DIR)
 
 
 parser_add = subparsers.add_parser('add',
@@ -218,7 +213,7 @@ def invoke(argv):
     if not args.command:
         parser.print_help()
     elif args.command == 'init':
-        msg = handle_init(lazy=args.lazy, force=args.force, phrase=args.phrase)
+        msg = handle_init(force=args.force)
     elif args.command == 'add':
         msg = handle_add(args.name, args.host, port=args.port,
                          user=args.user, password=args.password, identity=args.identity)

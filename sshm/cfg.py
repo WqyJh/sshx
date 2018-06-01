@@ -5,6 +5,7 @@ import shutil
 
 from .account import *
 
+from . import tokenizer
 
 
 _CONFIG_DIR = '.sshm'
@@ -47,15 +48,10 @@ def _validate_account_config(account):
 
 def validate_config(config):
     if config:
-        lazy = config.get('lazy', None)
         phrase = config.get('phrase', None)
         accounts = config.get('accounts', None)
 
-        if lazy:
-            flag = isinstance(lazy, bool) and isinstance(
-                phrase, str) and isinstance(accounts, list)
-        else:
-            flag = isinstance(lazy, bool) and isinstance(accounts, list)
+        flag = isinstance(phrase, str) and isinstance(accounts, list)
 
         if flag:
             for account in accounts:
@@ -106,12 +102,16 @@ def remove_all_config():
 def read_account(name):
     config, aclist = read_config()
     if config:
-        return find_by_name(aclist, name)
+        account = find_by_name(aclist, name)
+        if account:
+            account['password'] = tokenizer.decrypt(account['password'], config['phrase'])
+            return account
 
 
 def write_account(account):
     config, aclist = read_config()
     if config:
+        account['password'] = tokenizer.encrypt(account['password'], config['phrase'])
         add_or_update(aclist, account)
         write_config(config)
         return True

@@ -5,27 +5,6 @@ import unittest
 
 from sshm import cfg
 from sshm import sshm
-from sshm.account import *
-
-ACCOUNT1 = {
-    'name': 'a1',
-    'host': 'h1',
-}
-
-ACCOUNT2 = {
-    'name': 'a2',
-    'host': 'h2',
-}
-
-ACCOUNT3 = {
-    'name': 'a1',
-    'host': 'h3',
-}
-
-ACCOUNT4 = {
-    'name': 'a4',
-    'host': 'h4',
-}
 
 
 class UtilTest(unittest.TestCase):
@@ -34,27 +13,6 @@ class UtilTest(unittest.TestCase):
         cfg.set_config_dir(config_dir)
         self.assertEqual(config_dir, cfg.CONFIG_DIR)
         self.assertEqual(os.path.join(config_dir, cfg._ACCOUNT_FILE), cfg.ACCOUNT_FILE)
-
-
-class AccountTest(unittest.TestCase):
-    def setUp(self):
-        self.list1 = [ACCOUNT1, ACCOUNT2]
-        self.list2 = [ACCOUNT1, ACCOUNT2, ACCOUNT3]
-
-    def test_find(self):
-        account1 = find_by_name(self.list1, ACCOUNT1['name'])
-        self.assertEqual(ACCOUNT1['host'], account1['host'])
-        account2 = find_by_name(self.list2, ACCOUNT2['name'])
-        self.assertEqual(ACCOUNT2['host'], account2['host'])
-
-    def test_add_or_update(self):
-        add_or_update(self.list1, ACCOUNT3)
-        self.assertEqual(2, len(self.list1))
-        self.assertEqual(find_by_name(self.list1, ACCOUNT1['name'])[
-                         'host'], ACCOUNT3['host'])
-
-        add_or_update(self.list1, ACCOUNT4)
-        self.assertEqual(3, len(self.list1))
 
 
 NAME1 = 'name1'
@@ -73,16 +31,10 @@ class CommandTest(unittest.TestCase):
     def test_init(self):
         with mock.patch('sshm.sshm.handle_init') as m:
             sshm.invoke(['init', ])
-            m.assert_called_with(lazy=False, force=False, phrase='')
+            m.assert_called_with(force=False)
 
-            sshm.invoke(['init', '--lazy'])
-            m.assert_called_with(lazy=True, force=False, phrase='')
-
-            sshm.invoke(['init', '--lazy', '--force'])
-            m.assert_called_with(lazy=True, force=True, phrase='')
-
-            sshm.invoke(['init', '--lazy', '--force', '-p', '123456'])
-            m.assert_called_with(lazy=True, force=True, phrase='123456')
+            sshm.invoke(['init', '--force'])
+            m.assert_called_with(force=True)
 
     def test_add(self):
         with mock.patch('sshm.sshm.handle_add') as m:
@@ -121,47 +73,44 @@ class CommandTest(unittest.TestCase):
 
 class FunctionalTest(unittest.TestCase):
     def setUp(self):
-        cfg.set_config_dir('/tmp/.sshm')
+        cfg.set_config_dir('.sshm')
 
     def tearDown(self):
-        shutil.rmtree(cfg.CONFIG_DIR)
+        shutil.rmtree('.sshm')
 
     def test_init(self):
         self.assertEqual(cfg.STATUS_UNINIT, cfg.check_init())
 
-        msg = sshm.handle_init(lazy=False, force=False, phrase='')
+        msg = sshm.handle_init(force=False)
         self.assertEqual('success', msg['status'])
         config, acclist = cfg.read_config()
-        self.assertEqual(False, config['lazy'])
-        self.assertIsNone(config['phrase'])
+        self.assertIsInstance(config['phrase'], str)
         self.assertEqual(0, len(acclist))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
-        msg = sshm.handle_init(lazy=True, force=False, phrase='123')
+        msg = sshm.handle_init(force=False)
         self.assertEqual('fail', msg['status'])
         config, acclist = cfg.read_config()
-        self.assertEqual(False, config['lazy'])
-        self.assertIsNone(config['phrase'])
+        self.assertIsInstance(config['phrase'], str)
         self.assertEqual(0, len(acclist))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
-        msg = sshm.handle_init(lazy=True, force=True, phrase='123')
+        phrase1 = config['phrase']
+        msg = sshm.handle_init(force=True)
         self.assertEqual('success', msg['status'])
         config, acclist = cfg.read_config()
-        self.assertEqual(True, config['lazy'])
-        self.assertEqual('123', config['phrase'])
+        self.assertNotEqual(phrase1, config['phrase'])
         self.assertEqual(0, len(acclist))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
     def test_add(self):
-        msg = sshm.handle_init(lazy=False, force=False, phrase='')
+        msg = sshm.handle_init()
 
         msg = sshm.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual('success', msg['status'])
-        config, acclist = cfg.read_config()
-        self.assertEqual(1, len(acclist))
-        acc = find_by_name(acclist, NAME1)
+        self.assertEqual(1, cfg.accounts_num())
+        acc = cfg.read_account(NAME1)
         self.assertEqual(HOST1, acc['host'])
         self.assertEqual(PORT1, acc['port'])
         self.assertEqual(USER1, acc['user'])
@@ -171,11 +120,10 @@ class FunctionalTest(unittest.TestCase):
         msg = sshm.handle_add(NAME2, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual('success', msg['status'])
-        config, acclist = cfg.read_config()
-        self.assertEqual(2, len(acclist))
+        self.assertEqual(2, cfg.accounts_num())
 
     def test_update(self):
-        msg = sshm.handle_init(lazy=False, force=False, phrase='')
+        msg = sshm.handle_init()
         self.assertEqual('success', msg['status'])
         msg = sshm.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
@@ -206,7 +154,7 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual(IDENTITY2, account['identity'])
 
     def test_del(self):
-        msg = sshm.handle_init(lazy=False, force=False, phrase='')
+        msg = sshm.handle_init()
         self.assertEqual('success', msg['status'])
         msg = sshm.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
@@ -221,15 +169,15 @@ class FunctionalTest(unittest.TestCase):
         sshm.handle_del(NAME1)
         config, acclist = cfg.read_config()
         self.assertEqual(1, len(acclist))
-        self.assertIsNone(find_by_name(acclist, NAME1))
+        self.assertIsNone(cfg.find_by_name(acclist, NAME1))
 
         sshm.handle_del(NAME2)
         config, acclist = cfg.read_config()
         self.assertEqual(0, len(acclist))
-        self.assertIsNone(find_by_name(acclist, NAME2))
+        self.assertIsNone(cfg.find_by_name(acclist, NAME2))
 
     def test_connect(self):
-        msg = sshm.handle_init(lazy=False, force=False, phrase='')
+        msg = sshm.handle_init()
         self.assertEqual('success', msg['status'])
         msg = sshm.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)

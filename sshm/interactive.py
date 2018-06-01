@@ -26,12 +26,11 @@ from paramiko.py3compat import u
 try:
     import termios
     import tty
-    from getch import getch, getche
 
     has_termios = True
 except ImportError:
     import colorama
-    from msvcrt import getch, getche
+    from msvcrt import getch
 
     has_termios = False
 
