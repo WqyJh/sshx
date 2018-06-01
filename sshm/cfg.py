@@ -20,10 +20,10 @@ def set_config_dir(config_dir):
     CONFIG_DIR = config_dir
     ACCOUNT_FILE = os.path.join(CONFIG_DIR, _ACCOUNT_FILE)
 
-ENV_CONFIG_DIR = 'SSHM_DIR'
+ENV_CONFIG_DIR = 'SSHM_HOME'
 
 if ENV_CONFIG_DIR in os.environ:
-    set_config_dir(ENV_CONFIG_DIR)
+    set_config_dir(os.environ[ENV_CONFIG_DIR])
 else:
     HOME = os.environ['USERPROFILE'] if os.name == 'nt' else os.environ['HOME']
     set_config_dir(os.path.join(HOME, _CONFIG_DIR))
@@ -71,10 +71,13 @@ def create_config_file():
 
 
 def read_config():
-    with open(ACCOUNT_FILE, 'r', encoding='utf-8') as configfile:
-        config = json.load(configfile)
-        if validate_config(config):
-            return config, config['accounts']
+    try:
+        with open(ACCOUNT_FILE, 'r', encoding='utf-8') as configfile:
+            config = json.load(configfile)
+            if validate_config(config):
+                return config, config['accounts']
+    except:
+        pass
     return (None, None)
 
 
