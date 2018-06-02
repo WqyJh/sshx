@@ -1,10 +1,13 @@
+from __future__ import unicode_literals
+
 import os
+import io
 import stat
-import json
 import shutil
 
 from .account import *
 
+from . import utils
 from . import tokenizer
 
 
@@ -40,7 +43,7 @@ _fields = ['name', 'host', 'port', 'user', 'password', 'identity']
 def _validate_account_config(account):
     if account:
         for f in _fields:
-            if not isinstance(account.get(f, None), str):
+            if not utils.is_str(account.get(f, None)):
                 return False
         return True
     return False
@@ -51,7 +54,7 @@ def validate_config(config):
         phrase = config.get('phrase', None)
         accounts = config.get('accounts', None)
 
-        flag = isinstance(phrase, str) and isinstance(accounts, list)
+        flag = utils.is_str(phrase) and isinstance(accounts, list)
 
         if flag:
             for account in accounts:
@@ -62,14 +65,14 @@ def validate_config(config):
 
 
 def create_config_file():
-    open(ACCOUNT_FILE, 'a').close()
+    io.open(ACCOUNT_FILE, 'a', encoding='utf-8').close()
     os.chmod(ACCOUNT_FILE, stat.S_IRUSR | stat.S_IWUSR)
 
 
 def read_config():
     try:
-        with open(ACCOUNT_FILE, 'r', encoding='utf-8') as configfile:
-            config = json.load(configfile)
+        with io.open(ACCOUNT_FILE, 'r', encoding='utf-8') as configfile:
+            config = utils.json_load(configfile.read())
             if validate_config(config):
                 return config, config['accounts']
     except:
@@ -78,8 +81,9 @@ def read_config():
 
 
 def write_config(config):
-    with open(ACCOUNT_FILE, 'w', encoding='utf-8') as configfile:
-        json.dump(config, configfile)
+    with io.open(ACCOUNT_FILE, 'w', encoding='utf-8') as configfile:
+        s = utils.json_dump(config)
+        configfile.write(s)
 
 
 def check_init():

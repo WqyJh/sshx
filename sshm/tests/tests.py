@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import os
 import mock
 import shutil
@@ -5,6 +7,7 @@ import unittest
 
 from sshm import cfg
 from sshm import sshm
+from sshm import utils
 
 
 class UtilTest(unittest.TestCase):
@@ -84,14 +87,14 @@ class FunctionalTest(unittest.TestCase):
         msg = sshm.handle_init(force=False)
         self.assertEqual('success', msg['status'])
         config, acclist = cfg.read_config()
-        self.assertIsInstance(config['phrase'], str)
+        self.assertTrue(utils.is_str(config['phrase']))
         self.assertEqual(0, len(acclist))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
         msg = sshm.handle_init(force=False)
         self.assertEqual('fail', msg['status'])
         config, acclist = cfg.read_config()
-        self.assertIsInstance(config['phrase'], str)
+        self.assertTrue(utils.is_str(config['phrase']))
         self.assertEqual(0, len(acclist))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 

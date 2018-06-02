@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 
 
 def account_filter(accounts):

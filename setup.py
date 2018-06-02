@@ -1,9 +1,12 @@
+from __future__ import unicode_literals
+
 import os
+import io
 import unittest
 import setuptools
 
 # Documentation
-with open("README.md", "r") as fh:
+with io.open("README.md", "r") as fh:
     long_description = fh.read()
 
 # Dependencies

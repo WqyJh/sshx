@@ -16,6 +16,7 @@
 # along with Paramiko; if not, write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA.
 
+from __future__ import unicode_literals
 
 import socket
 import os
@@ -30,9 +31,10 @@ try:
     has_termios = True
 except ImportError:
     import colorama
-    from msvcrt import getch
 
     has_termios = False
+
+from . import utils
 
 ENTER = 0x0D
 
@@ -98,12 +100,11 @@ def windows_shell(chan):
     def sending(sock):
         try:
             while True:
-                d = getch()
-                getch()
+                d = utils.getch()
                 if not d:
                     break
                 chan.send(d)
-        except (EOFError, OSError):
+        except socket.error:
             # connection closed
             pass
 
