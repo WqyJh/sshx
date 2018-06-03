@@ -27,6 +27,7 @@ IDENTITY1 = ''
 
 NAME2 = 'name2'
 IDENTITY2 = 'identity2'
+PASSWORD2 = 'password2'
 
 
 class CommandTest(unittest.TestCase):
@@ -40,28 +41,32 @@ class CommandTest(unittest.TestCase):
             m.assert_called_with(force=True)
 
     def test_add(self):
-        with mock.patch('sshm.sshm.handle_add') as m:
-            sshm.invoke(['add', '-n', NAME1, '-H', HOST1, '-p', PORT1,
-                         '-u', USER1, '-P', PASSWORD1, '-i', IDENTITY1])
-            m.assert_called_with(
-                NAME1, HOST1, port=PORT1, user=USER1, password=PASSWORD1, identity=IDENTITY1)
+        with mock.patch('sshm.utils.read_password', return_value=PASSWORD1) as m_read_password:
+            with mock.patch('sshm.sshm.handle_add') as m:
+                sshm.invoke(['add', '-n', NAME1, '-H', HOST1, '-p', PORT1,
+                            '-u', USER1, '-P', '-i', IDENTITY1])
+                m_read_password.assert_called_once()
+                m.assert_called_with(
+                    NAME1, HOST1, port=PORT1, user=USER1, password=PASSWORD1, identity=IDENTITY1)
 
     def test_update(self):
-        with mock.patch('sshm.sshm.handle_update') as m:
-            sshm.invoke(['update', '-n', NAME1, '-H', HOST1])
-            m.assert_called_with(NAME1, update_fields={
-                'host': HOST1,
-            })
+        with mock.patch('sshm.utils.read_password', return_value=PASSWORD2) as m_read_password:
+            with mock.patch('sshm.sshm.handle_update') as m:
+                sshm.invoke(['update', '-n', NAME1, '-H', HOST1])
+                m.assert_called_with(NAME1, update_fields={
+                    'host': HOST1,
+                })
 
-            sshm.invoke(['update', '-n', NAME1, '-H', HOST1, '-p',
-                         PORT1, '-u', USER1, '-P', PASSWORD1, '-i', IDENTITY1])
-            m.assert_called_with(NAME1, update_fields={
-                'host': HOST1,
-                'port': PORT1,
-                'user': USER1,
-                'password': PASSWORD1,
-                'identity': IDENTITY1,
-            })
+                sshm.invoke(['update', '-n', NAME1, '-H', HOST1, '-p',
+                            PORT1, '-u', USER1, '-P', '-i', IDENTITY1])
+                m_read_password.assert_called_once()
+                m.assert_called_with(NAME1, update_fields={
+                    'host': HOST1,
+                    'port': PORT1,
+                    'user': USER1,
+                    'password': PASSWORD2,
+                    'identity': IDENTITY1,
+                })
 
     def test_del(self):
         with mock.patch('sshm.sshm.handle_del') as m:
@@ -76,10 +81,10 @@ class CommandTest(unittest.TestCase):
 
 class FunctionalTest(unittest.TestCase):
     def setUp(self):
-        cfg.set_config_dir('.sshm')
+        cfg.set_config_dir('.tmp')
 
     def tearDown(self):
-        shutil.rmtree('.sshm')
+        shutil.rmtree('.tmp')
 
     def test_init(self):
         self.assertEqual(cfg.STATUS_UNINIT, cfg.check_init())
@@ -134,11 +139,13 @@ class FunctionalTest(unittest.TestCase):
 
         msg = sshm.handle_update(NAME1, update_fields={
             'identity': IDENTITY2,
+            'password': PASSWORD2,
         })
         self.assertEqual('success', msg['status'])
         self.assertEqual(1, cfg.accounts_num())
         account = cfg.read_account(NAME1)
         self.assertEqual(IDENTITY2, account['identity'])
+        self.assertEqual(PASSWORD2, account['password'])
 
         msg = sshm.handle_update(NAME2, update_fields={
             'identity': IDENTITY2,
@@ -189,13 +196,12 @@ class FunctionalTest(unittest.TestCase):
                               user=USER1, password=PASSWORD1, identity=IDENTITY2)
         self.assertEqual('success', msg['status'])
 
-        with mock.patch('sshm.sshwrap.sshp') as m:
+        with mock.patch('sshm.sshwrap.ssh') as m:
             sshm.handle_connect(NAME1)
-            m.assert_called_with(HOST1, PORT1, USER1, PASSWORD1)
+            m.assert_called_with(HOST1, PORT1, USER1, password=PASSWORD1)
 
-        with mock.patch('sshm.sshwrap.sshi') as m:
             sshm.handle_connect(NAME2)
-            m.assert_called_with(HOST1, PORT1, USER1, IDENTITY2)
+            m.assert_called_with(HOST1, PORT1, USER1, identity=IDENTITY2)
 
 
 if __name__ == '__main__':

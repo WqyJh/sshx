@@ -148,16 +148,12 @@ def handle_connect(name):
         }
 
     if account['identity']:
-        sshwrap.sshi(account['host'], account['port'],
-                     account['user'], account['identity'])
+        msg = sshwrap.ssh(account['host'], account['port'], account['user'],
+                          identity=account['identity'])
     else:
-        sshwrap.sshp(account['host'], account['port'],
-                     account['user'], account['password'])
-
-    return {
-        'status': 'success',
-        'msg': 'Connection to %s closed.' % account['host'],
-    }
+        msg = sshwrap.ssh(account['host'], account['port'], account['user'],
+                          password=account['password'])
+    return msg
 
 
 parser = argparse.ArgumentParser()
@@ -180,7 +176,7 @@ parser_add.add_argument('-n', '--name', type=str, required=True,
 parser_add.add_argument('-H', '--host', type=str, required=True)
 parser_add.add_argument('-p', '--port', type=str, default='22')
 parser_add.add_argument('-u', '--user', type=str, default='root')
-parser_add.add_argument('-P', '--password', type=str, default='')
+parser_add.add_argument('-P', '--password', action='store_true')
 parser_add.add_argument('-i', '--identity', type=str, default='')
 
 
@@ -191,7 +187,7 @@ parser_update.add_argument('-n', '--name', type=str, required=True,
 parser_update.add_argument('-H', '--host', type=str, default=None)
 parser_update.add_argument('-p', '--port', type=str, default=None)
 parser_update.add_argument('-u', '--user', type=str, default=None)
-parser_update.add_argument('-P', '--password', type=str, default=None)
+parser_update.add_argument('-P', '--password', action='store_true')
 parser_update.add_argument('-i', '--identity', type=str, default=None)
 
 
@@ -217,13 +213,23 @@ def invoke(argv):
     elif args.command == 'init':
         msg = handle_init(force=args.force)
     elif args.command == 'add':
+        password = ''
+        if args.password:
+            password = utils.read_password()
+
         msg = handle_add(args.name, args.host, port=args.port,
-                         user=args.user, password=args.password, identity=args.identity)
+                         user=args.user, password=password, identity=args.identity)
     elif args.command == 'update':
         d = args.__dict__
         name = d.pop('name')
         del d['command']
         d = {k: v for k, v in d.items() if v is not None}
+
+        if args.password:
+            d['password'] = utils.read_password()
+        else:
+            del d['password']
+
         msg = handle_update(name, update_fields=d)
     elif args.command == 'list':
         msg = handle_list()
