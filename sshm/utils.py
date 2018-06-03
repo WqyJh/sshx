@@ -6,6 +6,8 @@ import json
 import string
 import random
 
+from getpass import getpass as _getpass
+
 NT = os.name == 'nt'
 
 PY3 = sys.version > '3'
@@ -50,3 +52,6 @@ def getch():
     else:
         c = getch()
     return c
+
+def read_password():
+    return _getpass()
