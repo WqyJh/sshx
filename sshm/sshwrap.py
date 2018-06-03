@@ -5,19 +5,13 @@ from .interactive import interactive_shell
 
 from . import utils
 
-
 def _connect(f, use_password):
     exception = None
-    if utils.PY3:
-        try:
-            f()
-        except Exception as e:
-            exception = e
-    else:
-        try:
-            f()
-        except Exception, e:
-            exception = e
+
+    try:
+        f()
+    except Exception as e:
+        exception = e
 
     if exception is None:
         return {
