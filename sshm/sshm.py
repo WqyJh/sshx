@@ -171,23 +171,23 @@ parser_init.add_argument('-f', '--force', action='store_true',
 
 parser_add = subparsers.add_parser('add',
                                    help='add an account and assign a name for it')
-parser_add.add_argument('-n', '--name', type=str, required=True,
+parser_add.add_argument('name', type=str, 
                         help='assign an name to this account')
 parser_add.add_argument('-H', '--host', type=str, required=True)
-parser_add.add_argument('-p', '--port', type=str, default='22')
+parser_add.add_argument('-P', '--port', type=str, default='22')
 parser_add.add_argument('-u', '--user', type=str, default='root')
-parser_add.add_argument('-P', '--password', action='store_true')
+parser_add.add_argument('-p', '--password', action='store_true', default=True)
 parser_add.add_argument('-i', '--identity', type=str, default='')
 
 
 parser_update = subparsers.add_parser('update',
                                       help='update an specified account')
-parser_update.add_argument('-n', '--name', type=str, required=True,
+parser_update.add_argument('name', type=str, 
                            help='assign an name to this account')
 parser_update.add_argument('-H', '--host', type=str, default=None)
-parser_update.add_argument('-p', '--port', type=str, default=None)
+parser_update.add_argument('-P', '--port', type=str, default=None)
 parser_update.add_argument('-u', '--user', type=str, default=None)
-parser_update.add_argument('-P', '--password', action='store_true')
+parser_update.add_argument('-p', '--password', action='store_true')
 parser_update.add_argument('-i', '--identity', type=str, default=None)
 
 

@@ -43,8 +43,8 @@ class CommandTest(unittest.TestCase):
     def test_add(self):
         with mock.patch('sshm.utils.read_password', return_value=PASSWORD1) as m_read_password:
             with mock.patch('sshm.sshm.handle_add') as m:
-                sshm.invoke(['add', '-n', NAME1, '-H', HOST1, '-p', PORT1,
-                            '-u', USER1, '-P', '-i', IDENTITY1])
+                sshm.invoke(['add', NAME1, '-H', HOST1, '-P', PORT1,
+                            '-u', USER1, '-p', '-i', IDENTITY1])
                 m_read_password.assert_called_once()
                 m.assert_called_with(
                     NAME1, HOST1, port=PORT1, user=USER1, password=PASSWORD1, identity=IDENTITY1)
@@ -52,13 +52,13 @@ class CommandTest(unittest.TestCase):
     def test_update(self):
         with mock.patch('sshm.utils.read_password', return_value=PASSWORD2) as m_read_password:
             with mock.patch('sshm.sshm.handle_update') as m:
-                sshm.invoke(['update', '-n', NAME1, '-H', HOST1])
+                sshm.invoke(['update', NAME1, '-H', HOST1])
                 m.assert_called_with(NAME1, update_fields={
                     'host': HOST1,
                 })
 
-                sshm.invoke(['update', '-n', NAME1, '-H', HOST1, '-p',
-                            PORT1, '-u', USER1, '-P', '-i', IDENTITY1])
+                sshm.invoke(['update', NAME1, '-H', HOST1, '-P',
+                            PORT1, '-u', USER1, '-p', '-i', IDENTITY1])
                 m_read_password.assert_called_once()
                 m.assert_called_with(NAME1, update_fields={
                     'host': HOST1,
