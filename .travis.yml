@@ -1,22 +1,28 @@
-os:
-  - linux
-  - osx
-
 language: python
 
-python:
-  - "2.7"
-  - "3.4"
-  - "3.5"
-  - "3.6"
-  - "pypy2.7"
-  - "pypy3.5"
-
-before_install:
-  - pip install codecov
+matrix:
+  include:
+    - os: linux
+      python: 2.7
+      env: PY=py27
+    - os: linux
+      python: 3.4
+      env: PY=py34
+    - os: linux
+      python: 3.5
+      env: PY=py35
+    - os: linux
+      python: 3.6
+      env: PY=py36
+    - os: osx
+      language: generic
+      env: PY=py27
+    - os: osx
+      language: generic
+      env: PY=py36
 
 install:
-  - python setup.py install
+  - ./.travis/install.sh
 
 script:
   - coverage run setup.py test

@@ -21,6 +21,7 @@ MSG_CONFIG_NOT_FOUND = {
 
 def perform_init():
     os.makedirs(cfg.CONFIG_DIR, mode=0o700)
+    cfg.create_config_file()
 
     phrase = utils.random_str(32)
 
