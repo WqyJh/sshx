@@ -103,6 +103,7 @@ def windows_shell(chan):
                 d = utils.getch()
                 if not d:
                     break
+
                 chan.send(d)
         except socket.error:
             # connection closed
@@ -114,7 +115,29 @@ def windows_shell(chan):
             if not data:
                 sys.stdout.flush()
                 break
-            sys.stdout.write(data.decode('utf-8'))
+
+            # 2018/06/05
+            # Crash when receiving b'\xe0', but it can't solve easily.
+            # When pressing direction key UP, a b'\xe0H' sequence will
+            # be read through getch() method, and will be send to the 
+            # server. However, server can't recognize b'\xe0', so it 
+            # will be echoed onto the screen, therefore, it shows in
+            # the received data and cause a decoding fail.
+            # To solve the problem, we can't press the special key like
+            # direction key, page up and down.
+            # Another solution is, parsing the special key to ANSI escape
+            # sequence, I'v succeed in parsing direction keys, PgUp and PgDn. 
+            # I viewed the openssh client source code ported by microsoft 
+            # (https://github.com/PowerShell/openssh-portable).
+            # Then I don't think it's easy.
+            # So I decide to implement interactive shell on paramiko
+            # for windows later, and using os.system("ssh") for instead.
+            sys.stdout.write(data.decode())
+            
+            # can't write bytes directly, cause it won't
+            # escape the ANSI escape sequence
+            # sys.write(sys.stdout.fileno(), data)
+
             sys.stdout.flush()
 
     worker = threading.Thread(target=sending, args=(chan,))
