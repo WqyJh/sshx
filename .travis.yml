@@ -21,6 +21,12 @@ matrix:
       language: generic
       env: PY=py36
 
+<<<<<<< HEAD
+=======
+before_install:
+  - ./.travis/install.sh
+
+>>>>>>> a55f4b3... Fix install.sh
 install:
   - ./.travis/install.sh
 
