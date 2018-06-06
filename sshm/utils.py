@@ -14,6 +14,8 @@ PY3 = sys.version > '3'
 
 if NT:
     from msvcrt import getch as _getch
+    import win32api
+    import win32con
 else:
     #from getch import getch as _getch
     pass
@@ -79,3 +81,10 @@ def getch():
 
 def read_password():
     return _getpass()
+
+
+
+def press_key(key):
+    win32api.keybd_event(key, 0, win32con.KEYEVENT, 0)
+
+

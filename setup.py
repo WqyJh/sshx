@@ -43,7 +43,7 @@ entry_points = {
 
 setuptools.setup(
     name="sshm",
-    version="0.0.5",
+    version="0.0.6",
     author="wqy",
     author_email="qiyingwangwqy@gmail.com",
     description="SSH with account managing",
