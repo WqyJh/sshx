@@ -1,62 +1,57 @@
 from __future__ import unicode_literals
 
 import os
-import io
+import sys
+import platform
 import unittest
 import setuptools
 
-# Documentation
-with io.open("README.md", "r") as fh:
-    long_description = fh.read()
-
-# Dependencies
-win32_requirements = [
-    'colorama',
-    'pywin32',
+# test requires
+tests_require = [
+    'mock',
+    'coverage',
 ]
+
+
+# install requires
+_PYHOOK_URL = 'https://github.com/WqyJh/python-wheels/raw/master/pyHook/pyHook-1.5.1-{python}-{python}m-{platform}.whl'
+pyhook_url = _PYHOOK_URL.format(
+    python='cp%s%s' % platform.python_version_tuple()[0:2],
+    platform=sys.platform
+)
 
 install_requires = [
     'paramiko',
     'itsdangerous',
+    'colorama; platform_system == "Windows"',
+    'pywin32; platform_system == "Windows"',
+    'pyuserinput',
 ]
 
+dependency_links = []
+
 if os.name == 'nt':
-    # win32
-    install_requires.extend(win32_requirements)
+    dependency_links.append(pyhook_url)
 
-# Tests
+# entry points
+entry_points = {
+    'console_scripts': [
+        'sshm = sshm.sshm:main'
+    ]
+}
 
 
+# test suite
 def load_test_suite():
     test_loader = unittest.TestLoader()
     test_suite = test_loader.discover('sshm/tests')
     return test_suite
 
 
-# entry_points
-entry_points = {
-    'console_scripts': [
-        'sshm = sshm.sshm:main',
-    ],
-}
-
-
 setuptools.setup(
-    name="sshm",
-    version="0.0.6",
-    author="wqy",
-    author_email="qiyingwangwqy@gmail.com",
-    description="SSH with account managing",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    url="https://github.com/WqyJh/sshm",
-    packages=setuptools.find_packages(),
+    tests_require=tests_require,
     install_requires=install_requires,
-    test_suite='setup.load_test_suite',
-    entry_points=entry_points,
-    classifiers=(
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-        "Operating System :: OS Independent",
-    ),
+    dependency_links=dependency_links,
+    test_suite="setup.load_test_suite",
+    entry_points=entry_points
 )
