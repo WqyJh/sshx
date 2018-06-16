@@ -1,15 +1,18 @@
 from __future__ import unicode_literals
 
+import sys
 import time
 import threading
 import subprocess
 import paramiko
 
-from pykeyboard import PyKeyboard
-
 from .interactive import interactive_shell
 
 from . import utils
+
+if not utils.PY3:
+    from pykeyboard import PyKeyboard
+    FileNotFoundError = IOError
 
 
 def _connect(f, use_password):
@@ -60,6 +63,20 @@ def _ssh_paramiko(host, port, user, password='', identity=''):
         return msg
 
 
+def _ssh_pexpect(host, port, user, password='', identity=''):
+    from pexpect import pxssh
+    s = pxssh.pxssh()
+
+    if identity:
+        s.login(host, user, ssh_key=identity, auto_prompt_reset=False)
+    else:
+        s.login(host, user, password=password, auto_prompt_reset=False)
+    # If don't send an '\n', users have to press enter manually after
+    # interact() is called
+    s.send('\n')
+    s.interact()
+
+
 _SSH_COMMAND_PASSWORD = 'ssh {user}@{host} -p {port} -o PreferredAuthentications=password'
 _SSH_COMMAND_IDENTITY = 'ssh {user}@{host} -p {port} -i {identity}'
 
@@ -70,20 +87,28 @@ def _ssh_command_password(host, port, user, password='', identity=''):
         k = PyKeyboard()
         k.type_string(password)
         k.tap_key(k.enter_key)
+        time.sleep(0.2)
+        sys.stdin.flush()
 
     threading.Thread(target=input_password, args=(password,)).start()
-    return subprocess.call(_SSH_COMMAND_PASSWORD.format(
-        host=host, port=port, user=user
-    ))
+    try:
+        command = _SSH_COMMAND_PASSWORD.format(
+            host=host, port=port, user=user).split()
+        return subprocess.call(command)
+    except Exception:
+        sys.stdin.flush()
 
 
 def _ssh_command(host, port, user, password='', identity=''):
-    if identity:
-        return subprocess.call(_SSH_COMMAND_IDENTITY.format(
-            host=host, port=port, user=user, identity=identity
-        ))
+    if utils.NT:
+        if identity:
+            command = _SSH_COMMAND_IDENTITY.format(
+                host=host, port=port, user=user, identity=identity).split()
+            return subprocess.call(command)
+        else:
+            _ssh_command_password(host, port, user, password)
     else:
-        _ssh_command_password(host, port, user, password)
+        _ssh_pexpect(host, port, user, password=password, identity=identity)
 
 
 def has_command(command):
@@ -107,4 +132,4 @@ def ssh(host, port, user, password='', identity=''):
 
 
 if __name__ == '__main__':
-    ssh('domain', 'port', 'user', password='password', identity='/path/to/id_rsa')
+    ssh('huawei', 'port', 'user', password='password', identity='/path/to/id_rsa')

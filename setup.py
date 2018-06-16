@@ -23,9 +23,10 @@ pyhook_url = _PYHOOK_URL.format(
 install_requires = [
     'paramiko',
     'itsdangerous',
-    'colorama; platform_system == "Windows"',
-    'pywin32; platform_system == "Windows"',
-    'pyuserinput',
+    'pexpect;platform_system != "Windows"',
+    'colorama;platform_system == "Windows"',
+    'pywin32;platform_system == "Windows"',
+    'pyuserinput;platform_system == "Windows"',
 ]
 
 dependency_links = []
