@@ -11,8 +11,10 @@ from .interactive import interactive_shell
 from . import utils
 
 if not utils.PY3:
-    from pykeyboard import PyKeyboard
     FileNotFoundError = IOError
+
+if utils.NT:
+    from pykeyboard import PyKeyboard
 
 
 def _connect(f, use_password):
@@ -83,12 +85,12 @@ _SSH_COMMAND_IDENTITY = 'ssh {user}@{host} -p {port} -i {identity}'
 
 def _ssh_command_password(host, port, user, password='', identity=''):
     def input_password(password):
+        # delay 1s
         time.sleep(1)
+        # input password
         k = PyKeyboard()
         k.type_string(password)
         k.tap_key(k.enter_key)
-        time.sleep(0.2)
-        sys.stdin.flush()
 
     threading.Thread(target=input_password, args=(password,)).start()
     try:
