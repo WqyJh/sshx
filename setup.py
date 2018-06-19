@@ -37,7 +37,7 @@ if os.name == 'nt':
 # entry points
 entry_points = {
     'console_scripts': [
-        'sshm = sshm.sshm:main'
+        'sshx = sshx.sshx:main'
     ]
 }
 
@@ -45,7 +45,7 @@ entry_points = {
 # test suite
 def load_test_suite():
     test_loader = unittest.TestLoader()
-    test_suite = test_loader.discover('sshm/tests')
+    test_suite = test_loader.discover('sshx/tests')
     return test_suite
 
 

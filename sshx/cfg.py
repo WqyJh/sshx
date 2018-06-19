@@ -11,7 +11,7 @@ from . import utils
 from . import tokenizer
 
 
-_CONFIG_DIR = '.sshm'
+_CONFIG_DIR = '.sshx'
 _ACCOUNT_FILE = '.accounts'
 
 CONFIG_DIR = ''
@@ -24,7 +24,7 @@ def set_config_dir(config_dir):
     CONFIG_DIR = config_dir
     ACCOUNT_FILE = os.path.join(CONFIG_DIR, _ACCOUNT_FILE)
 
-ENV_CONFIG_DIR = 'SSHM_HOME'
+ENV_CONFIG_DIR = 'SSHX_HOME'
 
 if ENV_CONFIG_DIR in os.environ:
     set_config_dir(os.environ[ENV_CONFIG_DIR])

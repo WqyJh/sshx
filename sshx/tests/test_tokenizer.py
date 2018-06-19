@@ -2,7 +2,7 @@ from __future__ import unicode_literals
 
 import unittest
 
-from sshm import tokenizer
+from sshx import tokenizer
 
 
 class TokenizerTest(unittest.TestCase):

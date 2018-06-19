@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
 import unittest
-from sshm.account import *
+from sshx.account import *
 
 
 ACCOUNT1 = {
