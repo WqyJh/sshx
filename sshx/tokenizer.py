@@ -3,9 +3,9 @@ from __future__ import unicode_literals
 import hashlib
 from itsdangerous import URLSafeSerializer, SignatureExpired, BadData
 
-def _salt(str):
+def _salt(s):
     m = hashlib.md5()
-    m.update(str.encode('utf-8'))
+    m.update(s.encode('utf-8'))
     return m.hexdigest()
 
 def encrypt(string, key):

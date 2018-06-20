@@ -42,7 +42,7 @@ entry_points = {
 # test suite
 def load_test_suite():
     test_loader = unittest.TestLoader()
-    test_suite = test_loader.discover('sshx/tests')
+    test_suite = test_loader.discover('sshx/tests', top_level_dir='./')
     return test_suite
 
 

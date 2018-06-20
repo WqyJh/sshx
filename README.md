@@ -31,7 +31,7 @@ pip install --extra-index-url https://wqyjh.github.io/python-wheels/ git+https:/
 
 # Or
 
-pip install -i index-url https://wqyjh.github.io/python-wheels/ pyHook
+pip install -i  https://wqyjh.github.io/python-wheels/ pyHook
 python setup.py install
 
 # Or
@@ -166,3 +166,34 @@ python setup.py test
 - scp support
 - jump host support
 - X11Forward support(test)
+
+## Bugs
+
+**1. `python2 setup.py test` failed on every test case related to itsdangerous.**
+
+The traceback looks as follow. Seems the function `want_bytes` was `None`.
+
+```bash
+======================================================================
+ERROR: test_encrypt_decrypt (sshx.tests.test_tokenizer.TokenizerTest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\win-projects\PythonProjects\sshx\sshx\tests\test_tokenizer.py", line 12, in test_encrypt_decrypt
+    t = tokenizer.encrypt(s, k)
+  File "D:\win-projects\PythonProjects\sshx\sshx\tokenizer.py", line 14, in encrypt
+    s = URLSafeSerializer(key)
+  File "D:\win-programs\venv\sshxpy2\lib\site-packages\itsdangerous.py", line 518, in __init__
+    self.secret_key = want_bytes(secret_key)
+TypeError: 'NoneType' object is not callable
+```
+
+I don't know what caused it, but it passes all when I run the tests with unittest command
+
+```bash
+python -m unittest discover -t ./ -s sshx/tests -v
+```
+
+All tests passed with python3.
+
+So I think it's the bug of `setuptools`, and it only affects tests running with python2. Therefore the bug
+has nothing to do with the usage but cause the CI failure.
