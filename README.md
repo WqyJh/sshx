@@ -9,9 +9,49 @@ sshx is a lightweight ssh client with account managing. You can assign names to 
 
 ## Installation
 
+### Install from pypi
+
+For **Windows**:
+
+```bash
+pip install --extra-index-url https://wqyjh.github.io/python-wheels/ sshx
+```
+
+For **Linux**, **macOS**:
+
 ```bash
 pip install sshx
 ```
+
+### Install from source
+
+For **Windows**:
+```bash
+pip install --extra-index-url https://wqyjh.github.io/python-wheels/ git+https://github.com/WqyJh/sshx
+
+# Or
+
+pip install -i index-url https://wqyjh.github.io/python-wheels/ pyHook
+python setup.py install
+
+# Or
+
+pip install -r requirements.txt
+```
+
+For **Linux**, **macOX**:
+```bash
+pip install git+https://github.com/WqyJh/sshx
+
+# Or
+
+python setup.py install
+
+# Or
+
+pip install -r requirements.txt
+```
+
 
 ## Quick Start
 

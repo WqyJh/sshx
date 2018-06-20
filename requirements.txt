@@ -1,0 +1,11 @@
+--extra-index-url https://wqyjh.github.io/python-wheels/
+
+paramiko
+itsdangerous
+pexpect;platform_system != "Windows"
+colorama;platform_system == "Windows"
+pywin32;platform_system == "Windows"
+pyuserinput;platform_system == "Windows"
+pyhook;platform_system == "Windows"
+
+-e .

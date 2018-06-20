@@ -6,6 +6,8 @@ import platform
 import unittest
 import setuptools
 
+from sshx import __version__
+
 # test requires
 tests_require = [
     'mock',
@@ -14,12 +16,6 @@ tests_require = [
 
 
 # install requires
-_PYHOOK_URL = 'https://github.com/WqyJh/python-wheels/raw/master/pyHook/pyHook-1.5.1-{python}-{python}m-{platform}.whl'
-pyhook_url = _PYHOOK_URL.format(
-    python='cp%s%s' % platform.python_version_tuple()[0:2],
-    platform=sys.platform
-)
-
 install_requires = [
     'paramiko',
     'itsdangerous',
@@ -27,12 +23,13 @@ install_requires = [
     'colorama;platform_system == "Windows"',
     'pywin32;platform_system == "Windows"',
     'pyuserinput;platform_system == "Windows"',
+    'pyhook;platform_system == "Windows"',
 ]
 
 dependency_links = []
 
 if os.name == 'nt':
-    dependency_links.append(pyhook_url)
+    dependency_links.append('https://wqyjh.github.io/python-wheels/pyhook/')
 
 # entry points
 entry_points = {
@@ -50,6 +47,7 @@ def load_test_suite():
 
 
 setuptools.setup(
+    version=__version__,
     tests_require=tests_require,
     install_requires=install_requires,
     dependency_links=dependency_links,

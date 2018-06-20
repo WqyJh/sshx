@@ -4,6 +4,7 @@ import os
 import sys
 import argparse
 
+from . import __version__
 from . import cfg
 from . import utils
 from . import sshwrap
@@ -158,6 +159,8 @@ def handle_connect(name):
 
 
 parser = argparse.ArgumentParser()
+parser.add_argument('-v', '--version', action='store_true',
+                help='show version')
 
 
 subparsers = parser.add_subparsers(title='command',
@@ -208,6 +211,11 @@ def invoke(argv):
     args = parser.parse_args(argv)
 
     msg = None
+
+    if args.version:
+        print('sshx: %s' % __version__)
+        sys.exit(0)
+
 
     if not args.command:
         parser.print_help()
