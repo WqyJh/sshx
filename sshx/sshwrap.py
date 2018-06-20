@@ -67,19 +67,22 @@ def _ssh_paramiko(host, port, user, password='', identity=''):
 
 def _ssh_pexpect(host, port, user, password='', identity=''):
     from pexpect import pxssh
-    s = pxssh.pxssh()
+    s = pxssh.pxssh(options=dict(StrictHostKeyChecking="no", UserKnownHostsFile="/dev/null"))
 
     if identity:
-        s.login(host, user, ssh_key=identity, auto_prompt_reset=False)
+        s.login(host, user, port=port, ssh_key=identity, auto_prompt_reset=False)
     else:
-        s.login(host, user, password=password, auto_prompt_reset=False)
+        s.login(host, user, port=port, password=password, auto_prompt_reset=False)
     # If don't send an '\n', users have to press enter manually after
     # interact() is called
     s.send('\n')
     s.interact()
 
 
-_SSH_COMMAND_PASSWORD = 'ssh {user}@{host} -p {port} -o PreferredAuthentications=password'
+_SSH_COMMAND_PASSWORD = 'ssh {user}@{host} -p {port} \
+                        -o PreferredAuthentications=password \
+                        -o StrictHostKeyChecking=no \
+                        -o UserKnownHostsFile=/dev/null'
 _SSH_COMMAND_IDENTITY = 'ssh {user}@{host} -p {port} -i {identity}'
 
 

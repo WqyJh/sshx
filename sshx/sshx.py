@@ -158,9 +158,11 @@ def handle_connect(name):
     return msg
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-v', '--version', action='store_true',
-                help='show version')
+parser = argparse.ArgumentParser(prog='sshx')
+# Note:
+# version='%(prog)s %s' % __version__ is invalid
+# version='%(prog)s %(__version__)s' is invalid, too
+parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
 
 
 subparsers = parser.add_subparsers(title='command',
@@ -211,11 +213,6 @@ def invoke(argv):
     args = parser.parse_args(argv)
 
     msg = None
-
-    if args.version:
-        print('sshx: %s' % __version__)
-        sys.exit(0)
-
 
     if not args.command:
         parser.print_help()
