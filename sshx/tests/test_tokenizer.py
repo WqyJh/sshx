@@ -21,7 +21,6 @@ class TokenizerTest(unittest.TestCase):
         }
 
         for s, k in data.items():
-            assert isinstance(k, unicode)
             t = tokenizer.encrypt(s, k)
             self.assertNotEqual(s, t)
             self.assertEqual(s, tokenizer.decrypt(t, k))
