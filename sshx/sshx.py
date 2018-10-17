@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import os
+import re
 import sys
 import argparse
 
@@ -162,7 +163,8 @@ parser = argparse.ArgumentParser(prog='sshx')
 # Note:
 # version='%(prog)s %s' % __version__ is invalid
 # version='%(prog)s %(__version__)s' is invalid, too
-parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
+parser.add_argument('-v', '--version', action='version',
+                    version='%(prog)s ' + __version__)
 
 
 subparsers = parser.add_subparsers(title='command',
@@ -177,9 +179,11 @@ parser_init.add_argument('-f', '--force', action='store_true',
 
 parser_add = subparsers.add_parser('add',
                                    help='add an account and assign a name for it')
-parser_add.add_argument('name', type=str, 
+parser_add.add_argument('name', type=str,
                         help='assign an name to this account')
-parser_add.add_argument('-H', '--host', type=str, required=True)
+parser_add.add_argument('-l', type=str,
+                        help='<user>@<host>[:port]')
+parser_add.add_argument('-H', '--host', type=str)
 parser_add.add_argument('-P', '--port', type=str, default='22')
 parser_add.add_argument('-u', '--user', type=str, default='root')
 parser_add.add_argument('-p', '--password', action='store_true', default=True)
@@ -188,7 +192,7 @@ parser_add.add_argument('-i', '--identity', type=str, default='')
 
 parser_update = subparsers.add_parser('update',
                                       help='update an specified account')
-parser_update.add_argument('name', type=str, 
+parser_update.add_argument('name', type=str,
                            help='assign an name to this account')
 parser_update.add_argument('-H', '--host', type=str, default=None)
 parser_update.add_argument('-P', '--port', type=str, default=None)
@@ -209,6 +213,18 @@ parser_connect = subparsers.add_parser('connect',
 parser_connect.add_argument('name', type=str)
 
 
+def parse_user_host_port(s):
+    user, host_port = s.split('@')
+    splited = host_port.split(':')
+
+    if len(splited) == 2:
+        host, port = splited
+    else:
+        host, port = splited[0], '22'  # default port is 22
+
+    return user, host, port
+
+
 def invoke(argv):
     args = parser.parse_args(argv)
 
@@ -223,8 +239,13 @@ def invoke(argv):
         if args.password:
             password = utils.read_password()
 
-        msg = handle_add(args.name, args.host, port=args.port,
-                         user=args.user, password=password, identity=args.identity)
+        if args.l:
+            user, host, port = parse_user_host_port(args.l)
+        else:
+            user, host, port = args.user, args.host, args.port
+
+        msg = handle_add(args.name, host, port=port, user=user,
+                         password=password, identity=args.identity)
     elif args.command == 'update':
         d = args.__dict__
         name = d.pop('name')
