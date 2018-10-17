@@ -2,6 +2,10 @@ from __future__ import unicode_literals
 
 import sys
 import time
+import struct
+import termios
+import signal
+import fcntl
 import threading
 import subprocess
 import paramiko
@@ -65,6 +69,26 @@ def _ssh_paramiko(host, port, user, password='', identity=''):
         return msg
 
 
+def set_winsize(p):
+    s = struct.pack("HHHH", 0, 0, 0, 0)
+    a = struct.unpack('hhhh', fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ , s))
+
+    if not p.closed:
+        p.setwinsize(a[0], a[1])
+
+
+def sigwinch_passthrough(p):
+    def _sigwinch_passthrough(sig, data):
+        '''
+        Adjust the window size automatically when the window size changed.
+
+        Reference: https://pexpect.readthedocs.io/en/stable/api/pexpect.html?highlight=interactive#pexpect.spawn.interact.
+        '''
+        set_winsize(p)
+
+    return _sigwinch_passthrough
+
+
 def _ssh_pexpect(host, port, user, password='', identity=''):
     from pexpect import pxssh
     s = pxssh.pxssh(options=dict(StrictHostKeyChecking="no", UserKnownHostsFile="/dev/null"))
@@ -73,9 +97,13 @@ def _ssh_pexpect(host, port, user, password='', identity=''):
         s.login(host, user, port=port, ssh_key=identity, auto_prompt_reset=False)
     else:
         s.login(host, user, port=port, password=password, auto_prompt_reset=False)
+
+    set_winsize(s) # Adjust window size
+    signal.signal(signal.SIGWINCH, sigwinch_passthrough(s)) # Set auto-adjust window size
+
     # If don't send an '\n', users have to press enter manually after
     # interact() is called
-    s.send('\n')
+    s.send('\x1b\x00')
     s.interact()
 
 
