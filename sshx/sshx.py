@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import unicode_literals, print_function
 
 import os
 import re
@@ -9,6 +9,7 @@ from . import __version__
 from . import cfg
 from . import utils
 from . import sshwrap
+from . import const as c
 
 MSG_CONFIG_BROKEN = {
     'status': 'fail',
@@ -70,7 +71,7 @@ def handle_init(force=False):
     return msg
 
 
-def handle_add(name, host, port='22', user='root', password='', identity=''):
+def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password='', identity=''):
     if cfg.write_account({
         'name': name,
         'host': host,
@@ -183,9 +184,9 @@ parser_add.add_argument('name', type=str,
                         help='assign an name to this account')
 parser_add.add_argument('-l', type=str,
                         help='<user>@<host>[:port]')
-parser_add.add_argument('-H', '--host', type=str)
-parser_add.add_argument('-P', '--port', type=str, default='22')
-parser_add.add_argument('-u', '--user', type=str, default='root')
+parser_add.add_argument('-H', '--host', type=str, default=c.DEFAULT_HOST)
+parser_add.add_argument('-P', '--port', type=str, default=c.DEFAULT_PORT)
+parser_add.add_argument('-u', '--user', type=str, default=c.DEFAULT_USER)
 parser_add.add_argument('-p', '--password', action='store_true', default=True)
 parser_add.add_argument('-i', '--identity', type=str, default='')
 
@@ -220,7 +221,7 @@ def parse_user_host_port(s):
     if len(splited) == 2:
         host, port = splited
     else:
-        host, port = splited[0], '22'  # default port is 22
+        host, port = splited[0], c.DEFAULT_PORT
 
     return user, host, port
 

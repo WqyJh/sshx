@@ -1,0 +1,3 @@
+DEFAULT_USER = 'root'
+DEFAULT_HOST = None
+DEFAULT_PORT = '22'

@@ -8,6 +8,7 @@ import unittest
 from sshx import cfg
 from sshx import sshx
 from sshx import utils
+from sshx import const as c
 
 
 class UtilTest(unittest.TestCase):
@@ -58,6 +59,14 @@ class CommandTest(unittest.TestCase):
                 m_read_password.assert_called_once()
                 m.assert_called_with(
                     NAME1, HOST1, port=PORT1, user=USER1, password=PASSWORD1, identity=IDENTITY1)
+
+        with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
+            with mock.patch('sshx.sshx.handle_add') as m:
+                sshx.invoke(['add', NAME1, '-l', '%s@%s' % (USER1, HOST1),
+                             '-p', '-i', IDENTITY1])
+                m_read_password.assert_called_once()
+                m.assert_called_with(
+                    NAME1, HOST1, port=c.DEFAULT_PORT, user=USER1, password=PASSWORD1, identity=IDENTITY1)
 
     def test_update(self):
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD2) as m_read_password:
