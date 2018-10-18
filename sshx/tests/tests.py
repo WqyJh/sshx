@@ -8,6 +8,7 @@ import unittest
 from sshx import cfg
 from sshx import sshx
 from sshx import utils
+from sshx import const as c
 
 
 class UtilTest(unittest.TestCase):
@@ -15,7 +16,8 @@ class UtilTest(unittest.TestCase):
         config_dir = 'HEHE'
         cfg.set_config_dir(config_dir)
         self.assertEqual(config_dir, cfg.CONFIG_DIR)
-        self.assertEqual(os.path.join(config_dir, cfg._ACCOUNT_FILE), cfg.ACCOUNT_FILE)
+        self.assertEqual(os.path.join(
+            config_dir, cfg._ACCOUNT_FILE), cfg.ACCOUNT_FILE)
 
 
 NAME1 = 'name1'
@@ -44,10 +46,27 @@ class CommandTest(unittest.TestCase):
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
             with mock.patch('sshx.sshx.handle_add') as m:
                 sshx.invoke(['add', NAME1, '-H', HOST1, '-P', PORT1,
-                            '-u', USER1, '-p', '-i', IDENTITY1])
+                             '-u', USER1, '-p', '-i', IDENTITY1])
                 m_read_password.assert_called_once()
                 m.assert_called_with(
                     NAME1, HOST1, port=PORT1, user=USER1, password=PASSWORD1, identity=IDENTITY1)
+
+    def test_add2(self):
+        with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
+            with mock.patch('sshx.sshx.handle_add') as m:
+                sshx.invoke(['add', NAME1, '-l', '%s@%s:%s' % (USER1, HOST1, PORT1),
+                             '-p', '-i', IDENTITY1])
+                m_read_password.assert_called_once()
+                m.assert_called_with(
+                    NAME1, HOST1, port=PORT1, user=USER1, password=PASSWORD1, identity=IDENTITY1)
+
+        with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
+            with mock.patch('sshx.sshx.handle_add') as m:
+                sshx.invoke(['add', NAME1, '-l', '%s@%s' % (USER1, HOST1),
+                             '-p', '-i', IDENTITY1])
+                m_read_password.assert_called_once()
+                m.assert_called_with(
+                    NAME1, HOST1, port=c.DEFAULT_PORT, user=USER1, password=PASSWORD1, identity=IDENTITY1)
 
     def test_update(self):
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD2) as m_read_password:
@@ -58,7 +77,7 @@ class CommandTest(unittest.TestCase):
                 })
 
                 sshx.invoke(['update', NAME1, '-H', HOST1, '-P',
-                            PORT1, '-u', USER1, '-p', '-i', IDENTITY1])
+                             PORT1, '-u', USER1, '-p', '-i', IDENTITY1])
                 m_read_password.assert_called_once()
                 m.assert_called_with(NAME1, update_fields={
                     'host': HOST1,
