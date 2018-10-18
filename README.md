@@ -64,7 +64,7 @@ sshx init
 2. Adding an account.
 
 ```bash
-sshx add myhost -H 192.168.9.155 -u test
+sshx add myhost -l test@192.168.9.155
 ```
 
 (This command will ask you to type your password and sshx would store the encrypted password.)
@@ -91,6 +91,9 @@ lost all the accounts, so **DON'T TOUCH IT**. If this happened, use this command
 **`sshx add`**
 
 ```bash
+# add an account in an simpler way
+sshx add myhost user@host:port
+
 # add an account and specify an password for authentication
 sshx add myhost -H host -P port -u user -p
 
