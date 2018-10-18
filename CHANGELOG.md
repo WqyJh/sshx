@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.1] - 2018-10-18
 
 ### Added
+- Restrict travis ci building branches.
 - Add auto-adjust window size.
-- Add abbrev syntax for add command
+- Add abbrev syntax for add command.
 
 
 ## [0.0.11] - 2018-06-20
