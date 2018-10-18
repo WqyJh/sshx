@@ -1,5 +1,11 @@
 language: python
 
+branches:
+  only:
+    - master
+    - dev
+    - /^release-.*$/
+
 matrix:
   include:
     - os: linux
