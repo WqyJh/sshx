@@ -154,7 +154,7 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual('success', msg['status'])
         msg = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])        
+        self.assertEqual('success', msg['status'])
 
         msg = sshx.handle_update(NAME1, update_fields={
             'identity': IDENTITY2,
@@ -217,10 +217,12 @@ class FunctionalTest(unittest.TestCase):
 
         with mock.patch('sshx.sshwrap.ssh') as m:
             sshx.handle_connect(NAME1)
-            m.assert_called_with(HOST1, PORT1, USER1, password=PASSWORD1)
+            m.assert_called_with(cfg.Account(NAME1, user=USER1, host=HOST1, port=PORT1,
+                                             password=PASSWORD1, identity=IDENTITY1))
 
             sshx.handle_connect(NAME2)
-            m.assert_called_with(HOST1, PORT1, USER1, identity=IDENTITY2)
+            m.assert_called_with(cfg.Account(NAME2, user=USER1, host=HOST1, port=PORT1,
+                                             password=PASSWORD1, identity=IDENTITY2))
 
 
 if __name__ == '__main__':

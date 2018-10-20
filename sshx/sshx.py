@@ -147,12 +147,8 @@ def handle_connect(name):
             'msg': 'No account found named by "%s", please check the input.' % name,
         }
 
-    if account.identity:
-        msg = sshwrap.ssh(account.host, account.port, account.user,
-                          identity=account.identity)
-    else:
-        msg = sshwrap.ssh(account.host, account.port, account.user,
-                          password=account.password)
+    msg = sshwrap.ssh(account)
+    
     return msg
 
 
@@ -217,6 +213,9 @@ parser_exec.add_argument('execute', nargs=argparse.REMAINDER)
 
 
 def parse_user_host_port(s):
+    '''
+    user@host:port -> (user, host, port)
+    '''
     user, host_port = s.split('@')
     splited = host_port.split(':')
 
