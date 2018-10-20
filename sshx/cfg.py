@@ -1,4 +1,4 @@
-from __future__ import unicode_literals, print_function
+from __future__ import nested_scopes, generators, division, absolute_import, with_statement, print_function, unicode_literals
 
 import os
 import io
@@ -17,12 +17,14 @@ _ACCOUNT_FILE = '.accounts'
 CONFIG_DIR = ''
 ACCOUNT_FILE = ''
 
+
 def set_config_dir(config_dir):
     global CONFIG_DIR
     global ACCOUNT_FILE
 
     CONFIG_DIR = config_dir
     ACCOUNT_FILE = os.path.join(CONFIG_DIR, _ACCOUNT_FILE)
+
 
 ENV_CONFIG_DIR = 'SSHX_HOME'
 
@@ -37,31 +39,28 @@ STATUS_INITED = 0
 STATUS_BROKEN = 1
 STATUS_UNINIT = 2
 
-_fields = ['name', 'host', 'port', 'user', 'password', 'identity']
 
+class Config(object):
+    def __init__(self, config_dict):
+        '''
+        Construct from dict.
 
-def _validate_account_config(account):
-    if account:
-        for f in _fields:
-            if not utils.is_str(account.get(f, None)):
-                return False
-        return True
-    return False
+        Use __dict__ to convert to dict.
 
+        __init__() and __dict__ are reciprocal.
+        '''
+        self.phrase = config_dict.get('phrase', '')
+        self.accounts = [Account(**a) for a in config_dict.get('accounts', None)]
 
-def validate_config(config):
-    if config:
-        phrase = config.get('phrase', None)
-        accounts = config.get('accounts', None)
+    def is_valid(self):
+        b = utils.is_str(self.phrase) and isinstance(self.accounts, list) and all(map(Account.is_valid, self.accounts))
+        return b
 
-        flag = utils.is_str(phrase) and isinstance(accounts, list)
+    def __str__(self):
+        return str(self.__dict__)
 
-        if flag:
-            for account in accounts:
-                if not _validate_account_config(account):
-                    return False
-            return True
-    return False
+    def __repr__(self):
+        return self.__str__()
 
 
 def create_config_file():
@@ -72,17 +71,19 @@ def create_config_file():
 def read_config():
     try:
         with io.open(ACCOUNT_FILE, 'r', encoding='utf-8') as configfile:
-            config = utils.json_load(configfile.read())
-            if validate_config(config):
-                return config, config['accounts']
-    except:
-        pass
-    return (None, None)
+            config_dict = utils.json_load(configfile.read())
+            config = Config(config_dict)
+
+            if config.is_valid():
+                return config
+    except Exception as e:
+        print(e)
+    return None
 
 
 def write_config(config):
     with io.open(ACCOUNT_FILE, 'w', encoding='utf-8') as configfile:
-        s = utils.json_dump(config)
+        s = utils.json_dump(config.__dict__)
         configfile.write(s)
 
 
@@ -90,7 +91,7 @@ def check_init():
     flags = os.path.isdir(CONFIG_DIR) and os.path.isfile(ACCOUNT_FILE)
 
     if flags:
-        config, _ = read_config()
+        config = read_config()
         if config:
             return STATUS_INITED
         else:
@@ -104,26 +105,28 @@ def remove_all_config():
 
 
 def read_account(name):
-    config, aclist = read_config()
+    config = read_config()
     if config:
-        account = find_by_name(aclist, name)
+        account = find_by_name(config.accounts, name)
         if account:
-            account['password'] = tokenizer.decrypt(account['password'], config['phrase'])
+            account.password = tokenizer.decrypt(
+                account.password, config.phrase)
             return account
 
 
 def write_account(account):
-    config, aclist = read_config()
+    config = read_config()
     if config:
-        account['password'] = tokenizer.encrypt(account['password'], config['phrase'])
-        add_or_update(aclist, account)
+        account.password = tokenizer.encrypt(
+            account.password, config.phrase)
+        add_or_update(config.accounts, account)
         write_config(config)
         return True
     return False
 
 
 def accounts_num():
-    config, aclist = read_config()
+    config = read_config()
     if config:
-        return len(aclist)
+        return len(config.accounts)
     return 0

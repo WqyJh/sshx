@@ -1,4 +1,4 @@
-from __future__ import unicode_literals, print_function
+from __future__ import nested_scopes, generators, division, absolute_import, with_statement, print_function, unicode_literals
 
 import os
 import mock
@@ -11,7 +11,7 @@ from sshx import utils
 from sshx import const as c
 
 
-class UtilTest(unittest.TestCase):
+class CfgTest(unittest.TestCase):
     def test_set_config_dir(self):
         config_dir = 'HEHE'
         cfg.set_config_dir(config_dir)
@@ -110,24 +110,24 @@ class FunctionalTest(unittest.TestCase):
 
         msg = sshx.handle_init(force=False)
         self.assertEqual('success', msg['status'])
-        config, acclist = cfg.read_config()
-        self.assertTrue(utils.is_str(config['phrase']))
-        self.assertEqual(0, len(acclist))
+        config = cfg.read_config()
+        self.assertTrue(utils.is_str(config.phrase))
+        self.assertEqual(0, len(config.accounts))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
         msg = sshx.handle_init(force=False)
         self.assertEqual('fail', msg['status'])
-        config, acclist = cfg.read_config()
-        self.assertTrue(utils.is_str(config['phrase']))
-        self.assertEqual(0, len(acclist))
+        config = cfg.read_config()
+        self.assertTrue(utils.is_str(config.phrase))
+        self.assertEqual(0, len(config.accounts))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
-        phrase1 = config['phrase']
+        phrase1 = config.phrase
         msg = sshx.handle_init(force=True)
         self.assertEqual('success', msg['status'])
-        config, acclist = cfg.read_config()
-        self.assertNotEqual(phrase1, config['phrase'])
-        self.assertEqual(0, len(acclist))
+        config = cfg.read_config()
+        self.assertNotEqual(phrase1, config.phrase)
+        self.assertEqual(0, len(config.accounts))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
     def test_add(self):
@@ -138,11 +138,11 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual('success', msg['status'])
         self.assertEqual(1, cfg.accounts_num())
         acc = cfg.read_account(NAME1)
-        self.assertEqual(HOST1, acc['host'])
-        self.assertEqual(PORT1, acc['port'])
-        self.assertEqual(USER1, acc['user'])
-        self.assertEqual(PASSWORD1, acc['password'])
-        self.assertEqual(IDENTITY1, acc['identity'])
+        self.assertEqual(HOST1, acc.host)
+        self.assertEqual(PORT1, acc.port)
+        self.assertEqual(USER1, acc.user)
+        self.assertEqual(PASSWORD1, acc.password)
+        self.assertEqual(IDENTITY1, acc.identity)
 
         msg = sshx.handle_add(NAME2, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
@@ -154,7 +154,7 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual('success', msg['status'])
         msg = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])
+        self.assertEqual('success', msg['status'])        
 
         msg = sshx.handle_update(NAME1, update_fields={
             'identity': IDENTITY2,
@@ -163,8 +163,8 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual('success', msg['status'])
         self.assertEqual(1, cfg.accounts_num())
         account = cfg.read_account(NAME1)
-        self.assertEqual(IDENTITY2, account['identity'])
-        self.assertEqual(PASSWORD2, account['password'])
+        self.assertEqual(IDENTITY2, account.identity)
+        self.assertEqual(PASSWORD2, account.password)
 
         msg = sshx.handle_update(NAME2, update_fields={
             'identity': IDENTITY2,
@@ -180,7 +180,7 @@ class FunctionalTest(unittest.TestCase):
         account = cfg.read_account(NAME1)
         self.assertIsNone(account)
         account = cfg.read_account(NAME2)
-        self.assertEqual(IDENTITY2, account['identity'])
+        self.assertEqual(IDENTITY2, account.identity)
 
     def test_del(self):
         msg = sshx.handle_init()
@@ -192,18 +192,18 @@ class FunctionalTest(unittest.TestCase):
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual('success', msg['status'])
 
-        config, acclist = cfg.read_config()
-        self.assertEqual(2, len(acclist))
+        config = cfg.read_config()
+        self.assertEqual(2, len(config.accounts))
 
         sshx.handle_del(NAME1)
-        config, acclist = cfg.read_config()
-        self.assertEqual(1, len(acclist))
-        self.assertIsNone(cfg.find_by_name(acclist, NAME1))
+        config = cfg.read_config()
+        self.assertEqual(1, len(config.accounts))
+        self.assertIsNone(cfg.find_by_name(config.accounts, NAME1))
 
         sshx.handle_del(NAME2)
-        config, acclist = cfg.read_config()
-        self.assertEqual(0, len(acclist))
-        self.assertIsNone(cfg.find_by_name(acclist, NAME2))
+        config = cfg.read_config()
+        self.assertEqual(0, len(config.accounts))
+        self.assertIsNone(cfg.find_by_name(config.accounts, NAME2))
 
     def test_connect(self):
         msg = sshx.handle_init()

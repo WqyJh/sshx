@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.1] - 2018-10-18
 
 ### Added
+- Refactor config and account.
 - Add auto-adjust window size.
 - Add abbrev syntax for add command.
 

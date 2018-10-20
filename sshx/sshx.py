@@ -1,4 +1,4 @@
-from __future__ import unicode_literals, print_function
+from __future__ import nested_scopes, generators, division, absolute_import, with_statement, print_function, unicode_literals
 
 import os
 import re
@@ -28,10 +28,10 @@ def perform_init():
 
     phrase = utils.random_str(32)
 
-    config = {
+    config = cfg.Config({
         'phrase': phrase,
         'accounts': [],
-    }
+    })
     cfg.write_config(config)
 
 
@@ -72,14 +72,10 @@ def handle_init(force=False):
 
 
 def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password='', identity=''):
-    if cfg.write_account({
-        'name': name,
-        'host': host,
-        'port': port,
-        'user': user,
-        'password': password,
-        'identity': identity,
-    }):
+    if cfg.write_account(cfg.Account(
+        name=name, host=host, port=port,
+        user=user, password=password, identity=identity,
+    )):
         return {
             'status': 'success',
             'msg': 'Account added.'
@@ -102,7 +98,7 @@ def handle_update(name, update_fields):
     if not account:
         return MSG_CONFIG_NOT_FOUND
 
-    if 'name' in update_fields and update_fields['name'] != account['name']:
+    if 'name' in update_fields and update_fields['name'] != account.name:
         handle_del(name)
 
     account.update(update_fields)
@@ -116,13 +112,13 @@ def handle_update(name, update_fields):
 
 
 def handle_del(name):
-    config, aclist = cfg.read_config()
+    config = cfg.read_config()
     if not config:
         return MSG_CONFIG_BROKEN
 
-    account = cfg.find_by_name(aclist, name)
+    account = cfg.find_by_name(config.accounts, name)
     if account:
-        aclist.remove(account)
+        config.accounts.remove(account)
         cfg.write_config(config)
         return {
             'status': 'success',
@@ -133,14 +129,14 @@ def handle_del(name):
 
 
 def handle_list():
-    config, aclist = cfg.read_config()
+    config = cfg.read_config()
     if not config:
         return MSG_CONFIG_BROKEN
 
     print('%-30s%-30s%-30s' % ('name', 'host', 'user'))
     print('-' * 90)
-    for a in aclist:
-        print('%-30s%-30s%-30s' % (a['name'], a['host'], a['user']))
+    for a in config.accounts:
+        print('%-30s%-30s%-30s' % (a.name, a.host, a.user))
 
 
 def handle_connect(name):
@@ -151,12 +147,12 @@ def handle_connect(name):
             'msg': 'No account found named by "%s", please check the input.' % name,
         }
 
-    if account['identity']:
-        msg = sshwrap.ssh(account['host'], account['port'], account['user'],
-                          identity=account['identity'])
+    if account.identity:
+        msg = sshwrap.ssh(account.host, account.port, account.user,
+                          identity=account.identity)
     else:
-        msg = sshwrap.ssh(account['host'], account['port'], account['user'],
-                          password=account['password'])
+        msg = sshwrap.ssh(account.host, account.port, account.user,
+                          password=account.password)
     return msg
 
 
@@ -214,6 +210,12 @@ parser_connect = subparsers.add_parser('connect',
 parser_connect.add_argument('name', type=str)
 
 
+parser_exec = subparsers.add_parser('exec',
+                                   help='execute a command on the remote host')
+parser_exec.add_argument('name', type=str)
+parser_exec.add_argument('execute', nargs=argparse.REMAINDER)
+
+
 def parse_user_host_port(s):
     user, host_port = s.split('@')
     splited = host_port.split(':')
@@ -265,6 +267,8 @@ def invoke(argv):
         msg = handle_del(args.name)
     elif args.command == 'connect':
         msg = handle_connect(args.name)
+    elif args.command == 'exec':
+        print(args.__dict__)
 
     if msg:
         print('[%s]: %s' % (msg['status'], msg['msg']))

@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import nested_scopes, generators, division, absolute_import, with_statement, print_function, unicode_literals
 
 import sys
 import time
@@ -103,7 +103,7 @@ def _ssh_pexpect(host, port, user, password='', identity=''):
 
     # If don't send an '\n', users have to press enter manually after
     # interact() is called
-    s.send('\x1b\x00')
+    s.send('\x1b\x00') # Send Esc
     s.interact()
 
 

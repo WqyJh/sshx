@@ -1,23 +1,54 @@
-from __future__ import unicode_literals
+from __future__ import nested_scopes, generators, division, absolute_import, with_statement, print_function, unicode_literals
+
+from sshx import utils
 
 
-def account_filter(accounts):
-    d = {}
-    for account in accounts:
-        d[account['name']] = account
-    l = d.values()
-    accounts.clear()
-    accounts.extend(l)
+DEF_USER = 'root'
+DEF_HOST = ''
+DEF_PORT = '22'
+DEF_PASSWORD = ''
+DEF_IDENTITY = ''
+
+
+class Account(object):
+    def __init__(self, name, user=DEF_USER, host=DEF_HOST, port=DEF_PORT,
+                 password=DEF_PASSWORD, identity=DEF_IDENTITY):
+        self.name = name
+        self.user = user
+        self.host = host
+        self.port = port
+        self.password = password
+        self.identity = identity
+
+    def update(self, update):
+        if isinstance(update, Account):
+            # Trick here. Update self value.
+            self.__dict__ = update.__dict__
+        else:
+            for k, v in update.items():
+                setattr(self, k, v)
+
+    def is_valid(self):
+        '''
+        Return true when all values match utils.is_str().
+        '''
+        return all(map(utils.is_str, self.__dict__.values()))
+
+    def __str__(self):
+        return str(self.__dict__)
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def find_by_name(accounts, name):
     for a in accounts:
-        if a['name'] == name:
+        if a.name == name:
             return a
 
 
 def add_or_update(accounts, account):
-    origin = find_by_name(accounts, account['name'])
+    origin = find_by_name(accounts, account.name)
     if origin:
         origin.update(account)
     else:
