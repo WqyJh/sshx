@@ -47,7 +47,7 @@ def _connect(f, use_password):
         }
 
 
-def _ssh_paramiko(account):
+def ssh_paramiko(account):
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -93,7 +93,7 @@ def sigwinch_passthrough(p):
     return _sigwinch_passthrough
 
 
-def _ssh_pexpect(account):
+def ssh_pexpect(account):
     from pexpect import pxssh
     s = pxssh.pxssh(options=dict(StrictHostKeyChecking="no",
                                  UserKnownHostsFile="/dev/null"))
@@ -140,7 +140,7 @@ def _ssh_command_password(account):
         sys.stdin.flush()
 
 
-def _ssh_command(account):
+def ssh_command(account):
     if utils.NT:
         if account.identity:
             command = _SSH_COMMAND_IDENTITY.format(
@@ -150,7 +150,7 @@ def _ssh_command(account):
         else:
             _ssh_command_password(account)
     else:
-        _ssh_pexpect(account)
+        ssh_pexpect(account)
 
 
 def has_command(command):
@@ -168,6 +168,6 @@ def has_command(command):
 
 def ssh(account):
     if has_command('ssh'):
-        return _ssh_command(account)
+        return ssh_command(account)
     else:
-        return _ssh_paramiko(account)
+        return ssh_paramiko(account)
