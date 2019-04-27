@@ -13,7 +13,7 @@ import paramiko
 from .interactive import interactive_shell
 
 from . import utils
-from . import account
+from .cfg import read_account
 
 if not utils.PY3:
     FileNotFoundError = IOError
@@ -115,11 +115,71 @@ def ssh_pexpect(account):
     s.interact()
 
 
-_SSH_COMMAND_PASSWORD = 'ssh {user}@{host} -p {port} \
-                        -o PreferredAuthentications=password \
-                        -o StrictHostKeyChecking=no \
-                        -o UserKnownHostsFile=/dev/null'
-_SSH_COMMAND_IDENTITY = 'ssh {user}@{host} -p {port} -i {identity}'
+_SSH_COMMAND_PASSWORD = 'ssh {jump} {user}@{host} -p {port} \
+-o PreferredAuthentications=password \
+-o StrictHostKeyChecking=no \
+-o UserKnownHostsFile=/dev/null'
+_SSH_COMMAND_IDENTITY = 'ssh {jump} {user}@{host} -p {port} -i {identity}'
+_SSH_DEST = '{user}@{host}:{port}'
+
+
+def find_jumps(account):
+    jumps = []
+
+    a = read_account(account.via)
+    while a:
+        jumps.append(a)
+        a = read_account(a.via)
+    return jumps
+
+
+def compile_jumps(account):
+    accounts = list(reversed(find_jumps(account)))
+    dests = [_SSH_DEST.format(
+        user=a.user, host=a.host, port=a.port) for a in accounts]
+    jump = '-J ' + ','.join(dests)
+    passwords = [a.password for a in accounts]
+
+    return jump, passwords
+
+
+def ssh_pexpect2(account):
+    import pexpect
+    jump, passwords = compile_jumps(account)
+    if account.identity:
+        command = _SSH_COMMAND_IDENTITY.format(jump=jump,
+                                               user=account.user,
+                                               host=account.host,
+                                               port=account.port, identity=account.identity)
+    else:
+        command = _SSH_COMMAND_PASSWORD.format(jump=jump,
+                                               user=account.user,
+                                               host=account.host,
+                                               port=account.port)
+    try:
+        p = pexpect.spawn(command)
+
+        # Passwords for jump hosts
+        if passwords:
+            for password in passwords:
+                p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+                p.sendline(password)
+
+        # Password for dest host
+        if not account.identity:
+            p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            p.sendline(account.password)
+
+        set_winsize(p)  # Adjust window size
+        # Set auto-adjust window size
+        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
+
+        # If don't send an '\n', users have to press enter manually after
+        # interact() is called
+        # p.send('\x1b\x00')  # Send Esc
+        p.interact()
+    except Exception as e:
+        print("Connection failed")
 
 
 def _ssh_command_password(account):
@@ -150,7 +210,8 @@ def ssh_command(account):
         else:
             _ssh_command_password(account)
     else:
-        ssh_pexpect(account)
+        # ssh_pexpect(account)
+        ssh_pexpect2(account)
 
 
 def has_command(command):
