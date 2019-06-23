@@ -48,8 +48,8 @@ class CommandTest(unittest.TestCase):
                 sshx.invoke(['add', NAME1, '-H', HOST1, '-P', PORT1,
                              '-u', USER1, '-p', '-i', IDENTITY1])
                 m_read_password.assert_called_once()
-                m.assert_called_with(
-                    NAME1, HOST1, port=PORT1, user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                m.assert_called_with(NAME1, HOST1, port=PORT1, user=USER1, 
+                    password=PASSWORD1, identity=IDENTITY1, via='')
 
     def test_add2(self):
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
@@ -57,16 +57,16 @@ class CommandTest(unittest.TestCase):
                 sshx.invoke(['add', NAME1, '-l', '%s@%s:%s' % (USER1, HOST1, PORT1),
                              '-p', '-i', IDENTITY1])
                 m_read_password.assert_called_once()
-                m.assert_called_with(
-                    NAME1, HOST1, port=PORT1, user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                m.assert_called_with(NAME1, HOST1, port=PORT1, user=USER1, 
+                    password=PASSWORD1, identity=IDENTITY1, via='')
 
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
             with mock.patch('sshx.sshx.handle_add') as m:
                 sshx.invoke(['add', NAME1, '-l', '%s@%s' % (USER1, HOST1),
                              '-p', '-i', IDENTITY1])
                 m_read_password.assert_called_once()
-                m.assert_called_with(
-                    NAME1, HOST1, port=c.DEFAULT_PORT, user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                m.assert_called_with(NAME1, HOST1, port=c.DEFAULT_PORT, user=USER1, 
+                    password=PASSWORD1, identity=IDENTITY1, via='')
 
     def test_update(self):
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD2) as m_read_password:
@@ -77,7 +77,7 @@ class CommandTest(unittest.TestCase):
                 })
 
                 sshx.invoke(['update', NAME1, '-H', HOST1, '-P',
-                             PORT1, '-u', USER1, '-p', '-i', IDENTITY1])
+                             PORT1, '-u', USER1, '-p', '-i', IDENTITY1, '-v', NAME2])
                 m_read_password.assert_called_once()
                 m.assert_called_with(NAME1, update_fields={
                     'host': HOST1,
@@ -85,6 +85,7 @@ class CommandTest(unittest.TestCase):
                     'user': USER1,
                     'password': PASSWORD2,
                     'identity': IDENTITY1,
+                    'via': NAME2,
                 })
 
     def test_del(self):
@@ -148,6 +149,25 @@ class FunctionalTest(unittest.TestCase):
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual('success', msg['status'])
         self.assertEqual(2, cfg.accounts_num())
+
+    def test_add_via(self):
+        msg = sshx.handle_init()
+
+        msg = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME1,
+                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+        self.assertEqual('fail', msg['status'])
+
+        msg = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME2,
+                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+        self.assertEqual('fail', msg['status'])
+
+        msg = sshx.handle_add(NAME1, HOST1, port=PORT1,
+                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+        self.assertEqual('success', msg['status'])
+        msg = sshx.handle_add(NAME2, HOST1, port=PORT1, via=NAME1,
+                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+        self.assertEqual('success', msg['status'])
+
 
     def test_update(self):
         msg = sshx.handle_init()

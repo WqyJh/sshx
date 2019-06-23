@@ -71,14 +71,26 @@ def handle_init(force=False):
     return msg
 
 
-def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password='', identity=''):
+def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password='', identity='', via=''):
+    if via == name:
+        return {
+            'status': 'fail',
+            'msg': 'Cannot connect via itself.'
+        }
+
+    if via and not cfg.read_account(via):
+        return {
+            'status': 'fail',
+            'msg': "Account '%s' doesn't exist." % via,
+        }
+
     if cfg.write_account(cfg.Account(
-        name=name, host=host, port=port,
+        name=name, host=host, port=port, via=via,
         user=user, password=password, identity=identity,
     )):
         return {
             'status': 'success',
-            'msg': 'Account added.'
+            'msg': 'Account added.',
         }
     else:
         return {
@@ -97,6 +109,20 @@ def handle_update(name, update_fields):
     account = cfg.read_account(name)
     if not account:
         return MSG_CONFIG_NOT_FOUND
+
+    if 'via' in update_fields:
+        via = update_fields['via']
+        if via == name:
+            return {
+                'status': 'fail',
+                'msg': 'Cannot connect via itself.'
+            }
+
+        if not cfg.read_account(via):
+            return {
+                'status': 'fail',
+                'msg': "Account '%s' doesn't exist." % via,
+            }
 
     if 'name' in update_fields and update_fields['name'] != account.name:
         handle_del(name)
@@ -181,6 +207,7 @@ parser_add.add_argument('-P', '--port', type=str, default=c.DEFAULT_PORT)
 parser_add.add_argument('-u', '--user', type=str, default=c.DEFAULT_USER)
 parser_add.add_argument('-p', '--password', action='store_true', default=True)
 parser_add.add_argument('-i', '--identity', type=str, default='')
+parser_add.add_argument('-v', '--via', type=str, default='')
 
 
 parser_update = subparsers.add_parser('update',
@@ -192,6 +219,7 @@ parser_update.add_argument('-P', '--port', type=str, default=None)
 parser_update.add_argument('-u', '--user', type=str, default=None)
 parser_update.add_argument('-p', '--password', action='store_true')
 parser_update.add_argument('-i', '--identity', type=str, default=None)
+parser_update.add_argument('-v', '--via', type=str, default=None)
 
 
 parser_del = subparsers.add_parser('del', help='delete an account')
@@ -246,7 +274,7 @@ def invoke(argv):
         else:
             user, host, port = args.user, args.host, args.port
 
-        msg = handle_add(args.name, host, port=port, user=user,
+        msg = handle_add(args.name, host, port=port, user=user, via=args.via,
                          password=password, identity=args.identity)
     elif args.command == 'update':
         d = args.__dict__
