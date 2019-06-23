@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Restrict travis ci building branches.
 
+
+## [0.2.1] - 2019-06-23
+
+### Added
+- Add jump host for command `connect`
+
+
+## [0.2.0] - 2019-06-23
+
+### Added
+- Add jump host for command `add` and `update`
+
 ## [0.1.1] - 2018-10-18
 
 ### Added
