@@ -165,13 +165,16 @@ def handle_list():
         print('%-20s%-30s%-20s%-20s' % (a.name, a.host, a.user, a.via))
 
 
-def handle_connect(name):
+def handle_connect(name, via=''):
     account = cfg.read_account(name)
     if not account:
         return {
             'status': 'fail',
             'msg': 'No account found named by "%s", please check the input.' % name,
         }
+
+    if via:
+        account.via = via
 
     msg = sshwrap.ssh(account)
     
@@ -232,6 +235,7 @@ parser_list = subparsers.add_parser('list', help='list all account')
 parser_connect = subparsers.add_parser('connect',
                                        help='connect with specified account')
 parser_connect.add_argument('name', type=str)
+parser_connect.add_argument('-v', '--via', type=str, default=None)
 
 
 parser_exec = subparsers.add_parser('exec',
@@ -293,7 +297,7 @@ def invoke(argv):
     elif args.command == 'del':
         msg = handle_del(args.name)
     elif args.command == 'connect':
-        msg = handle_connect(args.name)
+        msg = handle_connect(args.name, via=args.via)
     elif args.command == 'exec':
         print(args.__dict__)
 

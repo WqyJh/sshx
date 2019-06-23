@@ -159,6 +159,11 @@ Connect to an account.
 
 ```bash
 sshx connect host1
+
+# connect to host1 using host2 as jump host
+# If the host1 was originally has an via host,
+# this argument would temporarily override it.
+sshx connect host1 -v host2
 ```
 
 ## Test
