@@ -133,10 +133,10 @@ def handle_list():
     if not config:
         return MSG_CONFIG_BROKEN
 
-    print('%-30s%-30s%-30s' % ('name', 'host', 'user'))
-    print('-' * 90)
+    print('%-20s%-30s%-20s%-20s' % ('name', 'host', 'user', 'via'))
+    print('%-20s%-30s%-20s%-20s' % ('-----', '-----', '-----', '-----'))
     for a in config.accounts:
-        print('%-30s%-30s%-30s' % (a.name, a.host, a.user))
+        print('%-20s%-30s%-20s%-20s' % (a.name, a.host, a.user, a.via))
 
 
 def handle_connect(name):

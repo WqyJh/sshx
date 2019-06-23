@@ -134,11 +134,16 @@ def find_jumps(account):
 
 
 def compile_jumps(account):
-    accounts = list(reversed(find_jumps(account)))
-    dests = [_SSH_DEST.format(
-        user=a.user, host=a.host, port=a.port) for a in accounts]
-    jump = '-J ' + ','.join(dests)
-    passwords = [a.password for a in accounts]
+    jumps = find_jumps(account)
+    if jumps:
+        accounts = list(reversed(jumps))
+        dests = [_SSH_DEST.format(
+            user=a.user, host=a.host, port=a.port) for a in accounts]
+        jump = '-J ' + ','.join(dests)
+        passwords = [a.password for a in accounts]
+    else:
+        jump = ''
+        passwords = []
 
     return jump, passwords
 
