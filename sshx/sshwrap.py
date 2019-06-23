@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import nested_scopes, generators, division, absolute_import, with_statement, print_function, unicode_literals
 
 import sys
 import time
@@ -13,6 +13,7 @@ import paramiko
 from .interactive import interactive_shell
 
 from . import utils
+from .cfg import read_account
 
 if not utils.PY3:
     FileNotFoundError = IOError
@@ -46,15 +47,17 @@ def _connect(f, use_password):
         }
 
 
-def _ssh_paramiko(host, port, user, password='', identity=''):
+def ssh_paramiko(account):
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-    if identity:
-        def f(): return client.connect(host, int(port), user, key_filename=identity)
+    if account.identity:
+        def f(): return client.connect(account.host, int(account.port),
+                                       account.user, key_filename=account.identity)
         use_password = False
     else:
-        def f(): return client.connect(host, int(port), user, password=password)
+        def f(): return client.connect(account.host, int(account.port),
+                                       account.user, password=account.password)
         use_password = True
     msg = _connect(f, use_password)
 
@@ -63,7 +66,7 @@ def _ssh_paramiko(host, port, user, password='', identity=''):
         interactive_shell(chan)
         return {
             'status': 'success',
-            'msg': 'Connection to %s closed.' % host,
+            'msg': 'Connection to %s closed.' % account.host,
         }
     else:
         return msg
@@ -71,7 +74,8 @@ def _ssh_paramiko(host, port, user, password='', identity=''):
 
 def set_winsize(p):
     s = struct.pack("HHHH", 0, 0, 0, 0)
-    a = struct.unpack('hhhh', fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ , s))
+    a = struct.unpack('hhhh', fcntl.ioctl(
+        sys.stdout.fileno(), termios.TIOCGWINSZ, s))
 
     if not p.closed:
         p.setwinsize(a[0], a[1])
@@ -89,32 +93,101 @@ def sigwinch_passthrough(p):
     return _sigwinch_passthrough
 
 
-def _ssh_pexpect(host, port, user, password='', identity=''):
+def ssh_pexpect(account):
     from pexpect import pxssh
-    s = pxssh.pxssh(options=dict(StrictHostKeyChecking="no", UserKnownHostsFile="/dev/null"))
+    s = pxssh.pxssh(options=dict(StrictHostKeyChecking="no",
+                                 UserKnownHostsFile="/dev/null"))
 
-    if identity:
-        s.login(host, user, port=port, ssh_key=identity, auto_prompt_reset=False)
+    if account.identity:
+        s.login(account.host, account.user, port=account.port,
+                ssh_key=account.identity, auto_prompt_reset=False)
     else:
-        s.login(host, user, port=port, password=password, auto_prompt_reset=False)
+        s.login(account.host, account.user, port=account.port,
+                password=account.password, auto_prompt_reset=False)
 
-    set_winsize(s) # Adjust window size
-    signal.signal(signal.SIGWINCH, sigwinch_passthrough(s)) # Set auto-adjust window size
+    set_winsize(s)  # Adjust window size
+    # Set auto-adjust window size
+    signal.signal(signal.SIGWINCH, sigwinch_passthrough(s))
 
     # If don't send an '\n', users have to press enter manually after
     # interact() is called
-    s.send('\x1b\x00')
+    s.send('\x1b\x00')  # Send Esc
     s.interact()
 
 
-_SSH_COMMAND_PASSWORD = 'ssh {user}@{host} -p {port} \
-                        -o PreferredAuthentications=password \
-                        -o StrictHostKeyChecking=no \
-                        -o UserKnownHostsFile=/dev/null'
-_SSH_COMMAND_IDENTITY = 'ssh {user}@{host} -p {port} -i {identity}'
+_SSH_COMMAND_PASSWORD = 'ssh {jump} {user}@{host} -p {port} \
+-o PreferredAuthentications=password \
+-o StrictHostKeyChecking=no \
+-o UserKnownHostsFile=/dev/null'
+_SSH_COMMAND_IDENTITY = 'ssh {jump} {user}@{host} -p {port} -i {identity}'
+_SSH_DEST = '{user}@{host}:{port}'
 
 
-def _ssh_command_password(host, port, user, password='', identity=''):
+def find_jumps(account):
+    jumps = []
+
+    a = read_account(account.via)
+    while a:
+        jumps.append(a)
+        a = read_account(a.via)
+    return jumps
+
+
+def compile_jumps(account):
+    jumps = find_jumps(account)
+    if jumps:
+        accounts = list(reversed(jumps))
+        dests = [_SSH_DEST.format(
+            user=a.user, host=a.host, port=a.port) for a in accounts]
+        jump = '-J ' + ','.join(dests)
+        passwords = [a.password for a in accounts]
+    else:
+        jump = ''
+        passwords = []
+
+    return jump, passwords
+
+
+def ssh_pexpect2(account):
+    import pexpect
+    jump, passwords = compile_jumps(account)
+    if account.identity:
+        command = _SSH_COMMAND_IDENTITY.format(jump=jump,
+                                               user=account.user,
+                                               host=account.host,
+                                               port=account.port, identity=account.identity)
+    else:
+        command = _SSH_COMMAND_PASSWORD.format(jump=jump,
+                                               user=account.user,
+                                               host=account.host,
+                                               port=account.port)
+    try:
+        p = pexpect.spawn(command)
+
+        # Passwords for jump hosts
+        if passwords:
+            for password in passwords:
+                p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+                p.sendline(password)
+
+        # Password for dest host
+        if not account.identity:
+            p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            p.sendline(account.password)
+
+        set_winsize(p)  # Adjust window size
+        # Set auto-adjust window size
+        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
+
+        # If don't send an '\n', users have to press enter manually after
+        # interact() is called
+        # p.send('\x1b\x00')  # Send Esc
+        p.interact()
+    except Exception as e:
+        print("Connection failed")
+
+
+def _ssh_command_password(account):
     def input_password(password):
         # delay 1s
         time.sleep(1)
@@ -123,25 +196,27 @@ def _ssh_command_password(host, port, user, password='', identity=''):
         k.type_string(password)
         k.tap_key(k.enter_key)
 
-    threading.Thread(target=input_password, args=(password,)).start()
+    threading.Thread(target=input_password, args=(account.password,)).start()
     try:
         command = _SSH_COMMAND_PASSWORD.format(
-            host=host, port=port, user=user).split()
+            host=account.host, port=account.port, user=account.user).split()
         return subprocess.call(command)
     except Exception:
         sys.stdin.flush()
 
 
-def _ssh_command(host, port, user, password='', identity=''):
+def ssh_command(account):
     if utils.NT:
-        if identity:
+        if account.identity:
             command = _SSH_COMMAND_IDENTITY.format(
-                host=host, port=port, user=user, identity=identity).split()
+                host=account.host, port=account.port,
+                user=account.user, identity=account.identity).split()
             return subprocess.call(command)
         else:
-            _ssh_command_password(host, port, user, password)
+            _ssh_command_password(account)
     else:
-        _ssh_pexpect(host, port, user, password=password, identity=identity)
+        # ssh_pexpect(account)
+        ssh_pexpect2(account)
 
 
 def has_command(command):
@@ -157,12 +232,8 @@ def has_command(command):
     return True
 
 
-def ssh(host, port, user, password='', identity=''):
+def ssh(account):
     if has_command('ssh'):
-        return _ssh_command(host, port, user, password=password, identity=identity)
+        return ssh_command(account)
     else:
-        return _ssh_paramiko(host, port, user, password=password, identity=identity)
-
-
-if __name__ == '__main__':
-    ssh('huawei', 'port', 'user', password='password', identity='/path/to/id_rsa')
+        return ssh_paramiko(account)

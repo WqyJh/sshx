@@ -102,6 +102,10 @@ sshx add myhost -H host -P port -u user -i identity_file
 
 # add an account and specify both password and identity file for authentication
 sshx add myhost -H host -P port -u user -p -i identity_file
+
+# add an account named myhost2 and specify an password for authentication
+# use pre-added myhost as it's jump host
+sshx add -l user@host:port -v myhost myhost2
 ```
 
 - Host and user option are required for adding an account.
@@ -113,12 +117,11 @@ sshx add myhost -H host -P port -u user -p -i identity_file
 List all the accounts as the following format.
 
 ```bash
-name                          host                          user
-------------------------------------------------------------------------------------------
-host1                         192.168.9.188                 user1
-host2                         192.168.9.155                 user2
-host3                         192.168.9.156                 user3
-test                          192.168.9.157                 user4
+name                host                          user                via                 
+-----               -----                         -----               -----               
+host1               192.168.7.1                   root                                    
+host2               192.168.7.2                   test                host1               
+host3               192.168.7.3                   root                host2               
 ```
 
 **`sshx del`**
@@ -166,9 +169,9 @@ python setup.py test
 
 ## Todo
 
-- scp support
-- jump host support
-- X11Forward support(test)
+- [ ] scp support
+- [x] jump host support
+
 
 ## Bugs
 

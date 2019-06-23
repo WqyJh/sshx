@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import nested_scopes, generators, division, absolute_import, with_statement, print_function, unicode_literals
 
 import hashlib
 from itsdangerous import URLSafeSerializer, SignatureExpired, BadData

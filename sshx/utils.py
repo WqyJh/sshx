@@ -1,4 +1,4 @@
-from __future__ import unicode_literals
+from __future__ import nested_scopes, generators, division, absolute_import, with_statement, print_function, unicode_literals
 
 import os
 import sys
@@ -21,6 +21,11 @@ else:
     pass
 
 
+class ClsDictEncoder(json.JSONEncoder):
+    def default(self, o):
+            return o.__dict__ 
+
+
 def random_str(length):
     return ''.join([random.choice(string.ascii_letters + string.digits) for _ in range(15)])
 
@@ -34,9 +39,9 @@ def is_str(s):
 
 def json_dump(obj):
     if PY3:
-        return json.dumps(obj)
+        return json.dumps(obj, cls=ClsDictEncoder)
     else:
-        return json.dumps(obj).decode('utf-8')
+        return json.dumps(obj, cls=ClsDictEncoder).decode('utf-8')
 
 
 def json_load(s):
@@ -44,6 +49,7 @@ def json_load(s):
         return json.loads(s)
     else:
         return json.loads(s.encode('utf-8'))
+
 
 SPECIAL_KEY_MAP = {
     b'H': b'\x1b[A', # Up
