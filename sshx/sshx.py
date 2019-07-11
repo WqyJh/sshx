@@ -10,6 +10,7 @@ from . import cfg
 from . import utils
 from . import sshwrap
 from . import const as c
+from .sshx_forward import Forwards
 
 MSG_CONFIG_BROKEN = {
     'status': 'fail',
@@ -23,7 +24,7 @@ MSG_CONFIG_NOT_FOUND = {
 
 
 def perform_init():
-    os.makedirs(cfg.CONFIG_DIR, mode=0o700)
+    os.makedirs(cfg.CONFIG_DIR, mode=0o700, exist_ok=True)
     cfg.create_config_file()
 
     phrase = utils.random_str(32)
@@ -165,7 +166,7 @@ def handle_list():
         print('%-20s%-30s%-20s%-20s' % (a.name, a.host, a.user, a.via))
 
 
-def handle_connect(name, via=''):
+def handle_connect(name, via='', forwards=None):
     account = cfg.read_account(name)
     if not account:
         return {
@@ -176,9 +177,15 @@ def handle_connect(name, via=''):
     if via:
         account.via = via
 
-    msg = sshwrap.ssh(account)
-    
+    msg = sshwrap.ssh(account, forwards=forwards)
+
     return msg
+
+
+def handle_forward(name, maps=None, rmaps=None, via=''):
+    forwards = Forwards(maps, rmaps)
+
+    return handle_connect(name, via=via, forwards=forwards)
 
 
 parser = argparse.ArgumentParser(prog='sshx')
@@ -236,10 +243,23 @@ parser_connect = subparsers.add_parser('connect',
                                        help='connect with specified account')
 parser_connect.add_argument('name', type=str)
 parser_connect.add_argument('-v', '--via', type=str, default=None)
+parser_connect.add_argument(
+    '-f', '--forward', type=str, nargs='+', default=None)
+parser_connect.add_argument(
+    '-rf', '--rforward', type=str, nargs='+', default=None)
+
+parser_forward = subparsers.add_parser('forward',
+                                       help='forward with specified account')
+parser_forward.add_argument('name', type=str)
+parser_forward.add_argument('-v', '--via', type=str, default=None)
+parser_forward.add_argument(
+    '-f', '--forward', type=str, nargs='+', default=None)
+parser_forward.add_argument(
+    '-rf', '--rforward', type=str, nargs='+', default=None)
 
 
 parser_exec = subparsers.add_parser('exec',
-                                   help='execute a command on the remote host')
+                                    help='execute a command on the remote host')
 parser_exec.add_argument('name', type=str)
 parser_exec.add_argument('execute', nargs=argparse.REMAINDER)
 
@@ -298,6 +318,9 @@ def invoke(argv):
         msg = handle_del(args.name)
     elif args.command == 'connect':
         msg = handle_connect(args.name, via=args.via)
+    elif args.command == 'forward':
+        msg = handle_forward(args.name, via=args.via,
+                             maps=args.forward, rmaps=args.rforward)
     elif args.command == 'exec':
         print(args.__dict__)
 

@@ -115,11 +115,11 @@ def ssh_pexpect(account):
     s.interact()
 
 
-_SSH_COMMAND_PASSWORD = 'ssh {jump} {user}@{host} -p {port} \
+_SSH_COMMAND_PASSWORD = 'ssh {jump} {forwards} {user}@{host} -p {port} \
 -o PreferredAuthentications=password \
 -o StrictHostKeyChecking=no \
 -o UserKnownHostsFile=/dev/null'
-_SSH_COMMAND_IDENTITY = 'ssh {jump} {user}@{host} -p {port} -i {identity}'
+_SSH_COMMAND_IDENTITY = 'ssh {jump} {forwards} {user}@{host} -p {port} -i {identity}'
 _SSH_DEST = '{user}@{host}:{port}'
 
 
@@ -148,16 +148,21 @@ def compile_jumps(account):
     return jump, passwords
 
 
-def ssh_pexpect2(account):
+def ssh_pexpect2(account, forwards=None):
     import pexpect
     jump, passwords = compile_jumps(account)
+
+    _forwards = forwards.compile() if forwards else ''
+
     if account.identity:
         command = _SSH_COMMAND_IDENTITY.format(jump=jump,
+                                               forwards=_forwards,
                                                user=account.user,
                                                host=account.host,
                                                port=account.port, identity=account.identity)
     else:
         command = _SSH_COMMAND_PASSWORD.format(jump=jump,
+                                               forwards=_forwards,
                                                user=account.user,
                                                host=account.host,
                                                port=account.port)
@@ -205,7 +210,7 @@ def _ssh_command_password(account):
         sys.stdin.flush()
 
 
-def ssh_command(account):
+def ssh_command(account, forwards=None):
     if utils.NT:
         if account.identity:
             command = _SSH_COMMAND_IDENTITY.format(
@@ -216,7 +221,7 @@ def ssh_command(account):
             _ssh_command_password(account)
     else:
         # ssh_pexpect(account)
-        ssh_pexpect2(account)
+        ssh_pexpect2(account, forwards=forwards)
 
 
 def has_command(command):
@@ -232,8 +237,8 @@ def has_command(command):
     return True
 
 
-def ssh(account):
+def ssh(account, forwards=None):
     if has_command('ssh'):
-        return ssh_command(account)
+        return ssh_command(account, forwards=forwards)
     else:
         return ssh_paramiko(account)
