@@ -121,6 +121,12 @@ _SSH_COMMAND_PASSWORD = 'ssh {jump} {forwards} {user}@{host} -p {port} \
 -o UserKnownHostsFile=/dev/null'
 _SSH_COMMAND_IDENTITY = 'ssh {jump} {forwards} {user}@{host} -p {port} -i {identity}'
 _SSH_DEST = '{user}@{host}:{port}'
+_SCP_COMMAND_PASSWORD = 'scp -r \
+-oPreferredAuthentications=password \
+-oStrictHostKeyChecking=no \
+-oUserKnownHostsFile=/dev/null \
+-P {port} {jump} {src} {dst}'
+_SCP_COMMAND_IDENTITY = 'scp -r -P {port} {jump} {src} {dst} -i {identity}'
 
 
 def find_jumps(account):
@@ -133,13 +139,13 @@ def find_jumps(account):
     return jumps
 
 
-def compile_jumps(account):
+def compile_jumps(account, prefix='-J '):
     jumps = find_jumps(account)
     if jumps:
         accounts = list(reversed(jumps))
         dests = [_SSH_DEST.format(
             user=a.user, host=a.host, port=a.port) for a in accounts]
-        jump = '-J ' + ','.join(dests)
+        jump = prefix + ','.join(dests)
         passwords = [a.password for a in accounts]
     else:
         jump = ''
@@ -187,6 +193,47 @@ def ssh_pexpect2(account, forwards=None):
         # If don't send an '\n', users have to press enter manually after
         # interact() is called
         # p.send('\x1b\x00')  # Send Esc
+        p.interact()
+    except Exception as e:
+        print("Connection failed")
+
+
+def scp_pexpect(account, targets):
+    import pexpect
+
+    jump, passwords = compile_jumps(account, prefix='-oProxyJump=')
+
+    src, dst = targets.src.compile(), targets.dst.compile()
+
+    if account.identity:
+        command = _SCP_COMMAND_IDENTITY.format(jump=jump,
+                                               port=account.port,
+                                               src=src,
+                                               dst=dst,
+                                               identity=account.identity)
+    else:
+        command = _SCP_COMMAND_PASSWORD.format(jump=jump,
+                                               port=account.port,
+                                               src=src,
+                                               dst=dst)
+    try:
+        p = pexpect.spawn(command)
+
+        # Passwords for jump hosts
+        if passwords:
+            for password in passwords:
+                p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+                p.sendline(password)
+
+        # Password for dest host
+        if not account.identity:
+            p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            p.sendline(account.password)
+
+        set_winsize(p)  # Adjust window size
+        # Set auto-adjust window size
+        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
+
         p.interact()
     except Exception as e:
         print("Connection failed")

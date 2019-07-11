@@ -11,6 +11,7 @@ from . import utils
 from . import sshwrap
 from . import const as c
 from .sshx_forward import Forwards
+from .sshx_scp import TargetPair
 
 MSG_CONFIG_BROKEN = {
     'status': 'fail',
@@ -188,6 +189,33 @@ def handle_forward(name, maps=None, rmaps=None, via=''):
     return handle_connect(name, via=via, forwards=forwards)
 
 
+def handle_scp(src, dst, via=''):
+    targets = TargetPair(src, dst)
+
+    if targets.both_are_remote():
+        # TODO
+        return {
+            'status': 'fail',
+            'msg': 'Copy between remote targets are not supported yet.',
+        }
+
+    name = targets.src.host or targets.dst.host
+    account = cfg.read_account(name)
+
+    if not account:
+        return {
+            'status': 'fail',
+            'msg': 'Account <%s> not found.' % name,
+        }
+
+    if via:
+        account.via = via
+
+    msg = sshwrap.scp_pexpect(account, targets)
+
+    return msg
+
+
 parser = argparse.ArgumentParser(prog='sshx')
 # Note:
 # version='%(prog)s %s' % __version__ is invalid
@@ -249,13 +277,19 @@ parser_connect.add_argument(
     '-rf', '--rforward', type=str, nargs='+', default=None)
 
 parser_forward = subparsers.add_parser('forward',
-                                       help='forward with specified account')
+                                       help='ssh port forward via specified account')
 parser_forward.add_argument('name', type=str)
 parser_forward.add_argument('-v', '--via', type=str, default=None)
 parser_forward.add_argument(
     '-f', '--forward', type=str, nargs='+', default=None)
 parser_forward.add_argument(
     '-rf', '--rforward', type=str, nargs='+', default=None)
+
+parser_scp = subparsers.add_parser('scp',
+                                   help='scp files with specified account')
+parser_scp.add_argument('-v', '--via', type=str, default=None)
+parser_scp.add_argument('src', type=str)
+parser_scp.add_argument('dst', type=str)
 
 
 parser_exec = subparsers.add_parser('exec',
@@ -321,6 +355,8 @@ def invoke(argv):
     elif args.command == 'forward':
         msg = handle_forward(args.name, via=args.via,
                              maps=args.forward, rmaps=args.rforward)
+    elif args.command == 'scp':
+        msg = handle_scp(args.src, args.dst, via=args.via)
     elif args.command == 'exec':
         print(args.__dict__)
 

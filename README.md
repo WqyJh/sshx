@@ -199,15 +199,15 @@ You can also specify multiple maps after either `-f` or `-rf`.
 Copy files to/from server.
 
 ```bash
-sshx scp <source> host1:<dest>
+sshx scp <src> host1:<dst>
 
-sshx scp host1:<source> <dest>
+sshx scp host1:<src> <dst>
 
-sshx scp <source> host1:<dest> -v host2
+sshx scp <src> host1:<dst> -v host2
 
-sshx scp host1:<source> <dest> -v host2
+sshx scp host1:<src> <dst> -v host2
 
-sshx scp host1:<source> host2:<dest>
+sshx scp host1:<src> host2:<dst>
 ```
 
 ## Test
