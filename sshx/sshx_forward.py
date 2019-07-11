@@ -17,4 +17,4 @@ class Forwards(object):
     def compile(self):
         forward = self.forward.compile() if self.forward else ''
         rforward = self.rforward.compile() if self.rforward else ''
-        return '%s %s' % (forward, rforward)
+        return '-fNT %s %s' % (forward, rforward)
