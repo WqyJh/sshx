@@ -175,10 +175,7 @@ def handle_connect(name, via='', forwards=None):
             'msg': 'No account found named by "%s", please check the input.' % name,
         }
 
-    if via:
-        account.via = via
-
-    msg = sshwrap.ssh(account, forwards=forwards)
+    msg = sshwrap.ssh(account, vias=via, forwards=forwards)
 
     return msg
 

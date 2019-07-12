@@ -133,6 +133,11 @@ _SCP_COMMAND_PASSWORD = 'scp -r \
 _SCP_COMMAND_IDENTITY = 'scp -r -P {port} {jump} {src} {dst} -i {identity}'
 
 
+def find_vias(vias):
+    _vias = vias.split(',')
+    return [read_account(v) for v in reversed(_vias)]
+
+
 def find_jumps(account):
     jumps = []
 
@@ -143,8 +148,9 @@ def find_jumps(account):
     return jumps
 
 
-def compile_jumps(account, prefix='-J '):
-    jumps = find_jumps(account)
+def compile_jumps(account, vias=None, prefix='-J '):
+    jumps = find_vias(vias) if vias else find_jumps(account)
+
     if jumps:
         accounts = list(reversed(jumps))
         dests = [_SSH_DEST.format(
@@ -158,9 +164,9 @@ def compile_jumps(account, prefix='-J '):
     return jump, passwords
 
 
-def ssh_pexpect2(account, forwards=None):
+def ssh_pexpect2(account, vias=None, forwards=None):
     import pexpect
-    jump, passwords = compile_jumps(account)
+    jump, passwords = compile_jumps(account, vias=vias)
 
     _forwards = forwards.compile() if forwards else ''
 
@@ -177,6 +183,8 @@ def ssh_pexpect2(account, forwards=None):
                                                host=account.host,
                                                port=account.port)
     try:
+        print(command)
+
         p = pexpect.spawn(command)
 
         # Passwords for jump hosts
@@ -239,7 +247,7 @@ def ssh_pexpect3(account, forwards=None):
             p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
             p.sendline(account.password)
 
-        # p.send('\x1b\x00')  # Send Esc
+        p.send('\x1b\x00')  # Send Esc
         p.sendline()
 
         return {
@@ -249,8 +257,8 @@ def ssh_pexpect3(account, forwards=None):
         }
     except Exception as e:
         return {
-            'status': 'success',
-            'msg': 'Connection failed',
+            'status': 'fail',
+            'msg': 'Connection failed %s' % e,
         }
 
 
@@ -365,7 +373,7 @@ def scp_pexpect2(account, targets, jumps):
     except Exception as e:
         return {
             'status': 'success',
-            'msg': 'Connection failed',
+            'msg': 'Connection failed: %s' % e,
         }
 
 
@@ -387,7 +395,7 @@ def _ssh_command_password(account):
         sys.stdin.flush()
 
 
-def ssh_command(account, forwards=None):
+def ssh_command(account, vias=None, forwards=None):
     if utils.NT:
         if account.identity:
             command = _SSH_COMMAND_IDENTITY.format(
@@ -398,7 +406,7 @@ def ssh_command(account, forwards=None):
             _ssh_command_password(account)
     else:
         # ssh_pexpect(account)
-        ssh_pexpect2(account, forwards=forwards)
+        ssh_pexpect2(account, vias=vias, forwards=forwards)
 
 
 def has_command(command):
@@ -414,9 +422,9 @@ def has_command(command):
     return True
 
 
-def ssh(account, forwards=None):
+def ssh(account, vias=None, forwards=None):
     if has_command('ssh'):
-        return ssh_command(account, forwards=forwards)
+        return ssh_command(account, vias=vias, forwards=forwards)
     else:
         return ssh_paramiko(account)
 
