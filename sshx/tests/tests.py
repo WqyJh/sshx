@@ -96,7 +96,7 @@ class CommandTest(unittest.TestCase):
     def test_connect(self):
         with mock.patch('sshx.sshx.handle_connect') as m:
             sshx.invoke(['connect', NAME1])
-            m.assert_called_with(NAME1)
+            m.assert_called_with(NAME1, via=None)
 
 
 class FunctionalTest(unittest.TestCase):
