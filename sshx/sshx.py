@@ -205,10 +205,7 @@ def handle_scp(src, dst, via=''):
             'msg': 'Account <%s> not found.' % name,
         }
 
-    if via:
-        account.via = via
-
-    msg = sshwrap.scp(account, targets)
+    msg = sshwrap.scp(account, targets, vias=via)
 
     return msg
 

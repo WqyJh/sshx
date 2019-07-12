@@ -213,9 +213,9 @@ def ssh_pexpect2(account, vias=None, forwards=None):
         }
 
 
-def ssh_pexpect3(account, forwards=None):
+def ssh_pexpect3(account, vias=None, forwards=None):
     import pexpect
-    jump, passwords = compile_jumps(account)
+    jump, passwords = compile_jumps(account, vias=vias)
 
     _forwards = forwards.compile(prefix='') if forwards else ''
 
@@ -333,7 +333,8 @@ def scp_pexpect2(account, targets, jumps):
     print(maps)
 
     # Establish port forwarding
-    ret = ssh_pexpect3(jump1, forwards=forwards)
+    vias = ','.join([a.name for a in reversed(jumps)])
+    ret = ssh_pexpect3(jump1, vias=vias, forwards=forwards)
     if ret['status'] == 'fail':
         return ret
 
@@ -429,8 +430,8 @@ def ssh(account, vias=None, forwards=None):
         return ssh_paramiko(account)
 
 
-def scp(account, targets):
-    jumps = find_jumps(account)
+def scp(account, targets, vias=None):
+    jumps = find_vias(vias) if vias else find_jumps(account)
 
     if jumps:
         return scp_pexpect2(account, targets, jumps)

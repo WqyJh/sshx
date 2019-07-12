@@ -164,6 +164,10 @@ sshx connect host1
 # If the host1 was originally has an via host,
 # this argument would temporarily override it.
 sshx connect host1 -v host2
+
+# connect to hsot1 using host2 as jump host,
+# while the host2 is using host3 as jump host.
+sshx connect host1 -v host2,host3
 ```
 
 **`sshx forward`**
@@ -205,7 +209,7 @@ sshx scp host1:<src> <dst>
 
 sshx scp <src> host1:<dst> -v host2
 
-sshx scp host1:<src> <dst> -v host2
+sshx scp host1:<src> <dst> -v host2,host3
 ```
 
 TODO:
