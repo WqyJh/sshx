@@ -164,6 +164,57 @@ sshx connect host1
 # If the host1 was originally has an via host,
 # this argument would temporarily override it.
 sshx connect host1 -v host2
+
+# connect to hsot1 using host2 as jump host,
+# while the host2 is using host3 as jump host.
+sshx connect host1 -v host2,host3
+```
+
+**`sshx forward`**
+
+Forward ports.
+
+```bash
+sshx forward host1 [-f <map1> [map2]] [-rf <rmap1> [rmap2]] [-v host2[,host3]]
+
+map: [bind_address]:bind_port:remote_address:remote_port
+
+rmap: bind_address:bind_port:local_address:local_port
+```
+
+For example:
+
+```bash
+# Forward localhost:8888 to 192.168.77.7:80, while the host1 is the intermedia server, so you must ensure the host1 could dial to 192.168.77.7:80.
+sshx forward host1 -f :8888:192.168.77.7:80
+```
+
+```bash
+# Forward host1:8888 to 192.168.99.9:8888. When you access localhost:8000 on host1, the connection would be forward to 192.168.99.9:8888, while your computer is working as a intermediate server so you have to ensure your computer has access to 192.168.99.9:8888.
+sshx forward host1 -r :8000:192.168.99.9:8888
+```
+
+You can use `-f` and `-rf` arguments simultaneously.
+
+You can also specify multiple maps after either `-f` or `-rf`.
+
+**`sshx scp`**
+
+Copy files to/from server.
+
+```bash
+sshx scp <src> host1:<dst>
+
+sshx scp host1:<src> <dst>
+
+sshx scp <src> host1:<dst> -v host2
+
+sshx scp host1:<src> <dst> -v host2,host3
+```
+
+TODO:
+```bash
+sshx scp host1:<src> host2:<dst>
 ```
 
 ## Test
