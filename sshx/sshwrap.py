@@ -183,8 +183,6 @@ def ssh_pexpect2(account, vias=None, forwards=None):
                                                host=account.host,
                                                port=account.port)
     try:
-        print(command)
-
         p = pexpect.spawn(command)
 
         # Passwords for jump hosts
@@ -232,8 +230,6 @@ def ssh_pexpect3(account, vias=None, forwards=None):
                                                host=account.host,
                                                port=account.port)
     try:
-        print(command)
-
         p = pexpect.spawn(command)
 
         # Passwords for jump hosts
@@ -281,8 +277,6 @@ def scp_pexpect(account, targets):
                                                src=src,
                                                dst=dst)
     try:
-        print(command)
-
         p = pexpect.spawn(command)
 
         # Passwords for jump hosts
@@ -330,8 +324,6 @@ def scp_pexpect2(account, targets, jumps):
     maps = '%s:%s:%s:%s' % (LOCALHOST, port, account.host, account.port)
     forwards = Forwards(maps, '')
 
-    print(maps)
-
     # Establish port forwarding
     vias = ','.join([a.name for a in reversed(jumps)])
     ret = ssh_pexpect3(jump1, vias=vias, forwards=forwards)
@@ -339,8 +331,6 @@ def scp_pexpect2(account, targets, jumps):
         return ret
 
     forwarding = ret['p']
-
-    print(targets)
 
     src, dst = targets.src.compile(host=LOCALHOST), \
         targets.dst.compile(host=LOCALHOST)
@@ -357,8 +347,6 @@ def scp_pexpect2(account, targets, jumps):
                                                src=src,
                                                dst=dst)
     try:
-        print(command)
-
         p = pexpect.spawn(command)
 
         # Password for dest host
