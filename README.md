@@ -206,7 +206,10 @@ sshx scp host1:<src> <dst>
 sshx scp <src> host1:<dst> -v host2
 
 sshx scp host1:<src> <dst> -v host2
+```
 
+TODO:
+```bash
 sshx scp host1:<src> host2:<dst>
 ```
 

@@ -14,12 +14,16 @@ from .interactive import interactive_shell
 
 from . import utils
 from .cfg import read_account
+from .sshx_forward import Forwards
 
 if not utils.PY3:
     FileNotFoundError = IOError
 
 if utils.NT:
     from pykeyboard import PyKeyboard
+
+
+LOCALHOST = '127.0.0.1'
 
 
 def _connect(f, use_password):
@@ -195,7 +199,59 @@ def ssh_pexpect2(account, forwards=None):
         # p.send('\x1b\x00')  # Send Esc
         p.interact()
     except Exception as e:
-        print("Connection failed")
+        return {
+            'status': 'success',
+            'msg': 'Connection failed',
+        }
+
+
+def ssh_pexpect3(account, forwards=None):
+    import pexpect
+    jump, passwords = compile_jumps(account)
+
+    _forwards = forwards.compile(prefix='') if forwards else ''
+
+    if account.identity:
+        command = _SSH_COMMAND_IDENTITY.format(jump=jump,
+                                               forwards=_forwards,
+                                               user=account.user,
+                                               host=account.host,
+                                               port=account.port, identity=account.identity)
+    else:
+        command = _SSH_COMMAND_PASSWORD.format(jump=jump,
+                                               forwards=_forwards,
+                                               user=account.user,
+                                               host=account.host,
+                                               port=account.port)
+    try:
+        print(command)
+
+        p = pexpect.spawn(command)
+
+        # Passwords for jump hosts
+        if passwords:
+            for password in passwords:
+                p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+                p.sendline(password)
+
+        # Password for dest host
+        if not account.identity:
+            p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            p.sendline(account.password)
+
+        # p.send('\x1b\x00')  # Send Esc
+        p.sendline()
+
+        return {
+            'status': 'success',
+            'msg': 'Connected',
+            'p': p,
+        }
+    except Exception as e:
+        return {
+            'status': 'success',
+            'msg': 'Connection failed',
+        }
 
 
 def scp_pexpect(account, targets):
@@ -217,6 +273,8 @@ def scp_pexpect(account, targets):
                                                src=src,
                                                dst=dst)
     try:
+        print(command)
+
         p = pexpect.spawn(command)
 
         # Passwords for jump hosts
@@ -236,7 +294,79 @@ def scp_pexpect(account, targets):
 
         p.interact()
     except Exception as e:
-        print("Connection failed")
+        return {
+            'status': 'success',
+            'msg': 'Connection failed',
+        }
+
+
+def find_available_port():
+    import socket
+    import random
+
+    while True:
+        port = random.randint(50000, 60000)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            res = sock.connect_ex((LOCALHOST, port))
+            if res == 0:
+                continue
+            return port
+
+
+def scp_pexpect2(account, targets, jumps):
+    import re
+    import pexpect
+
+    jump1 = jumps.pop(0)
+    port = find_available_port()
+    maps = '%s:%s:%s:%s' % (LOCALHOST, port, account.host, account.port)
+    forwards = Forwards(maps, '')
+
+    print(maps)
+
+    # Establish port forwarding
+    ret = ssh_pexpect3(jump1, forwards=forwards)
+    if ret['status'] == 'fail':
+        return ret
+
+    forwarding = ret['p']
+
+    print(targets)
+
+    src, dst = targets.src.compile(host=LOCALHOST), \
+        targets.dst.compile(host=LOCALHOST)
+
+    if account.identity:
+        command = _SCP_COMMAND_IDENTITY.format(jump='',
+                                               port=port,
+                                               src=src,
+                                               dst=dst,
+                                               identity=account.identity)
+    else:
+        command = _SCP_COMMAND_PASSWORD.format(jump='',
+                                               port=port,
+                                               src=src,
+                                               dst=dst)
+    try:
+        print(command)
+
+        p = pexpect.spawn(command)
+
+        # Password for dest host
+        if not account.identity:
+            p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            p.sendline(account.password)
+
+        set_winsize(p)  # Adjust window size
+        # Set auto-adjust window size
+        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
+
+        p.interact()
+    except Exception as e:
+        return {
+            'status': 'success',
+            'msg': 'Connection failed',
+        }
 
 
 def _ssh_command_password(account):
@@ -289,3 +419,11 @@ def ssh(account, forwards=None):
         return ssh_command(account, forwards=forwards)
     else:
         return ssh_paramiko(account)
+
+
+def scp(account, targets):
+    jumps = find_jumps(account)
+
+    if jumps:
+        return scp_pexpect2(account, targets, jumps)
+    return scp_pexpect(account, targets)

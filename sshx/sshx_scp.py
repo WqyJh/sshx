@@ -15,9 +15,9 @@ class Target(object):
             self.host, self.path = None, None
 
     def is_remote(self):
-        return self.host and not self.host in ['localhost', '127.0.0.1']
+        return self.host
 
-    def compile(self):
+    def compile(self, host=''):
         if self.path is None:
             return ''
 
@@ -27,11 +27,20 @@ class Target(object):
         if self.host:
             account = cfg.read_account(self.host)
             if account:
+                if not host:
+                    host = account.host
                 return _SCP_TARGET.format(user=account.user,
-                                          host=account.host,
+                                          host=host,
                                           path=self.path)
 
         return ''
+
+
+    def __str__(self):
+        return str(self.__dict__)
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class TargetPair(object):
@@ -41,4 +50,10 @@ class TargetPair(object):
 
     def both_are_remote(self):
         return self.src.is_remote() and self.dst.is_remote()
+    
+    def __str__(self):
+        return str(self.__dict__)
+
+    def __repr__(self):
+        return self.__str__()
 

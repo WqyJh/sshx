@@ -211,7 +211,7 @@ def handle_scp(src, dst, via=''):
     if via:
         account.via = via
 
-    msg = sshwrap.scp_pexpect(account, targets)
+    msg = sshwrap.scp(account, targets)
 
     return msg
 
