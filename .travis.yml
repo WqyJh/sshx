@@ -1,47 +1,35 @@
 language: python
-
 branches:
   only:
-    - master
-    - dev
-    - /^release-.*$/
-
+  - master
+  - dev
+  - "/^release-.*$/"
 matrix:
   include:
-    - os: linux
-      python: 2.7
-      env: PY=py27
-    - os: linux
-      python: 3.4
-      env: PY=py34
-    - os: linux
-      python: 3.5
-      env: PY=py35
-    - os: linux
-      python: 3.6
-      env: PY=py36
-    - os: osx
-      language: generic
-      env: PY=py27
-    - os: osx
-      language: generic
-      env: PY=py36
-
+  - os: linux
+    python: 3.5
+    env: PY=py35
+  - os: linux
+    python: 3.6
+    env: PY=py36
+  - os: linux
+    python: 3.7
+    env: PY=py37
+  - os: osx
+    language: generic
+    env: PY=py36
 install:
-  - ./.travis/install.sh
-
+- "./.travis/install.sh"
 script:
-  - coverage run -m unittest discover -t ./ -s sshx/tests
-
+- coverage run -m unittest discover -t ./ -s sshx/tests
 after_success:
-  - codecov
-
+- codecov
 deploy:
   provider: pypi
-  user: "wqy"
-  password:
-    secure: "oR0ppUZAU7au0kCvq98paGUh1hEQocPw+Pjs4e1kTtFAvifdDX1zpVxNM9Z+GyPBgWbnFnbAoYc4Xy5Ph/IhUT0arT+9zYo1lHc33LYRKn3I8vIQoVhkYkoISyfQNTIX1SWKIPIShnUg9ciStgrTsBSyV8uZwUZwkuw44CLz6BA9R85G+PVdjWQ55unMEeE3DiuZ4DHtt7XK0DD5i9r/R/wA5ziS1jCnJjgc8QwRG6qniWFA7XgDEepMDC8T4B30GjJmD3cPy2HwuumYX9XrN4L7Jet4l0hThSYNRQMnaiT3rbwRVlDEHL1nPeAD2gAwYr9Ya1NQ2seM8DAzMxbrJxOIl+EZzb4CAptEcl5ZcJtxR/Qs+vQlbEq3W770XHWrgbdGeHqSectkvjwFzcx7sdbY354Jeie8vP4/X94/Sv9ecQRw3GScBSC+ghCwtekAE6Y8y8SWAC2FFpF1uIoJveTqKr4Lgbjrd1FDWyk8pPzFZ8SBVrXkQJPnjixnzpFf7oSrXrnnAAKoBBKkQ8IonwDKpzYKYwGAqWzeD+KcWkEytE7z9gpb+yBIYgaAkY+9KAr1dEi0FvPqzeemU/6CyIN331/xMM7iKUqYFnlAvxAAoFDWei9v1rlsLAGv8L4dYg1bdGdhz88fJTE3gSHbc7qXBonuhsWxhUVrrLT7v1I="
+  user: wqy
   on:
     branch: master
-  distributions: "sdist bdist_wheel"
+  distributions: sdist bdist_wheel
   skip_existing: true
+  password:
+    secure: RpJnstXCJrIS8vf1lwKGF+y88wsN9hxOrUdIcsGdppoAWa0OuBaE9wQ8yWIqTPR5UAn1kCATEMhEbGZEU618gqEEG0dyLHCzlCujH8uIqPdWdtSMDJIgi68d3ytJni+ubdICDTUQcs1LggLJkFrMgqNAhXtenuUs5aVQkPLrgVGPGBUuTHZLkwXTLxgdtQiqOaRxPSEl/x64OFPps4+TwCpW3l6Xt4Y5vghJ8ET+tnP3DavIlFm0+nUaTtHNFR372C7Dcgf8RFRYvuavS0rKkZuTMiwwvVusHH9++Pi0PVtOXWxtIF5EZBA+yr8O/4tBaI0a6vbbs3jYzkiODULMyFzSAQJ/p3paURwLDlBKyVByB/aL+OMkXqVeiAN6mv8PdFQ/sx5Fn1IosdzusQnWgHyboe0HIs8rr11NSaRMnhEexd2StEqLa2BF/uLDmv7+dFM5Iqxu/S1dZoOYU8n3kAUKS8kXz6zaFDBbge4jc+r8q2P4xAIz017MuJ+dS745CnhCtPMD/OA9erHb7E23xDZpM7p+C56WDIiH08KO4MT3eueT/ZVIpq2F0wn92yuc45DyY6gBs8MmXNfL1n+6bZfYAOYQRApHy6LaiQ9H14QxWVWT1lJUbGqhRUaUkzS2J9+JSEnpYMhIAFkg0d4tJubx5E2ewNQsSYEL3c32Mmw=
