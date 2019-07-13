@@ -35,3 +35,13 @@ script:
 
 after_success:
   - codecov
+
+deploy:
+  provider: pypi
+  user: "wqy"
+  password:
+    secure: "oR0ppUZAU7au0kCvq98paGUh1hEQocPw+Pjs4e1kTtFAvifdDX1zpVxNM9Z+GyPBgWbnFnbAoYc4Xy5Ph/IhUT0arT+9zYo1lHc33LYRKn3I8vIQoVhkYkoISyfQNTIX1SWKIPIShnUg9ciStgrTsBSyV8uZwUZwkuw44CLz6BA9R85G+PVdjWQ55unMEeE3DiuZ4DHtt7XK0DD5i9r/R/wA5ziS1jCnJjgc8QwRG6qniWFA7XgDEepMDC8T4B30GjJmD3cPy2HwuumYX9XrN4L7Jet4l0hThSYNRQMnaiT3rbwRVlDEHL1nPeAD2gAwYr9Ya1NQ2seM8DAzMxbrJxOIl+EZzb4CAptEcl5ZcJtxR/Qs+vQlbEq3W770XHWrgbdGeHqSectkvjwFzcx7sdbY354Jeie8vP4/X94/Sv9ecQRw3GScBSC+ghCwtekAE6Y8y8SWAC2FFpF1uIoJveTqKr4Lgbjrd1FDWyk8pPzFZ8SBVrXkQJPnjixnzpFf7oSrXrnnAAKoBBKkQ8IonwDKpzYKYwGAqWzeD+KcWkEytE7z9gpb+yBIYgaAkY+9KAr1dEi0FvPqzeemU/6CyIN331/xMM7iKUqYFnlAvxAAoFDWei9v1rlsLAGv8L4dYg1bdGdhz88fJTE3gSHbc7qXBonuhsWxhUVrrLT7v1I="
+  on:
+    branch: master
+  distributions: "sdist bdist_wheel"
+  skip_existing: true
