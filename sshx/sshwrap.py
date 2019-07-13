@@ -10,6 +10,8 @@ import threading
 import subprocess
 import paramiko
 
+from sshx import logger
+
 from .interactive import interactive_shell
 
 from . import utils
@@ -183,7 +185,7 @@ def ssh_pexpect2(account, vias=None, forwards=None):
                                                host=account.host,
                                                port=account.port)
     try:
-        print(command)
+        logger.debug(command)
 
         p = pexpect.spawn(command)
 
@@ -207,13 +209,14 @@ def ssh_pexpect2(account, vias=None, forwards=None):
         # p.send('\x1b\x00')  # Send Esc
         p.interact()
     except Exception as e:
+        logger.debug(e)
         return {
-            'status': 'success',
+            'status': 'fail',
             'msg': 'Connection failed',
         }
 
 
-def ssh_pexpect3(account, vias=None, forwards=None):
+def _ssh_pexpect3(account, vias=None, forwards=None):
     import pexpect
     jump, passwords = compile_jumps(account, vias=vias)
 
@@ -232,7 +235,7 @@ def ssh_pexpect3(account, vias=None, forwards=None):
                                                host=account.host,
                                                port=account.port)
     try:
-        print(command)
+        logger.debug(command)
 
         p = pexpect.spawn(command)
 
@@ -247,7 +250,6 @@ def ssh_pexpect3(account, vias=None, forwards=None):
             p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
             p.sendline(account.password)
 
-        p.send('\x1b\x00')  # Send Esc
         p.sendline()
 
         return {
@@ -256,9 +258,10 @@ def ssh_pexpect3(account, vias=None, forwards=None):
             'p': p,
         }
     except Exception as e:
+        logger.debug(e)
         return {
             'status': 'fail',
-            'msg': 'Connection failed %s' % e,
+            'msg': 'Connection failed',
         }
 
 
@@ -281,7 +284,7 @@ def scp_pexpect(account, targets):
                                                src=src,
                                                dst=dst)
     try:
-        print(command)
+        logger.debug(command)
 
         p = pexpect.spawn(command)
 
@@ -302,8 +305,9 @@ def scp_pexpect(account, targets):
 
         p.interact()
     except Exception as e:
+        logger.debug(e)
         return {
-            'status': 'success',
+            'status': 'fail',
             'msg': 'Connection failed',
         }
 
@@ -322,7 +326,6 @@ def find_available_port():
 
 
 def scp_pexpect2(account, targets, jumps):
-    import re
     import pexpect
 
     jump1 = jumps.pop(0)
@@ -330,17 +333,13 @@ def scp_pexpect2(account, targets, jumps):
     maps = '%s:%s:%s:%s' % (LOCALHOST, port, account.host, account.port)
     forwards = Forwards(maps, '')
 
-    print(maps)
-
     # Establish port forwarding
     vias = ','.join([a.name for a in reversed(jumps)])
-    ret = ssh_pexpect3(jump1, vias=vias, forwards=forwards)
+    ret = _ssh_pexpect3(jump1, vias=vias, forwards=forwards)
     if ret['status'] == 'fail':
         return ret
 
     forwarding = ret['p']
-
-    print(targets)
 
     src, dst = targets.src.compile(host=LOCALHOST), \
         targets.dst.compile(host=LOCALHOST)
@@ -357,7 +356,7 @@ def scp_pexpect2(account, targets, jumps):
                                                src=src,
                                                dst=dst)
     try:
-        print(command)
+        logger.debug(command)
 
         p = pexpect.spawn(command)
 
@@ -372,9 +371,10 @@ def scp_pexpect2(account, targets, jumps):
 
         p.interact()
     except Exception as e:
+        logger.debug(e)
         return {
-            'status': 'success',
-            'msg': 'Connection failed: %s' % e,
+            'status': 'fail',
+            'msg': 'Connection failed',
         }
 
 
@@ -407,7 +407,7 @@ def ssh_command(account, vias=None, forwards=None):
             _ssh_command_password(account)
     else:
         # ssh_pexpect(account)
-        ssh_pexpect2(account, vias=vias, forwards=forwards)
+        return ssh_pexpect2(account, vias=vias, forwards=forwards)
 
 
 def has_command(command):

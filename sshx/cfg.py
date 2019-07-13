@@ -5,6 +5,8 @@ import io
 import stat
 import shutil
 
+from sshx import logger
+
 from .account import *
 
 from . import utils
@@ -77,7 +79,7 @@ def read_config():
             if config.is_valid():
                 return config
     except Exception as e:
-        print(e)
+        logger.critical(e)
     return None
 
 

@@ -4,3 +4,10 @@ from __future__ import nested_scopes, generators, division, absolute_import, wit
 __version__ = '0.3.0'
 
 __all__ = ['sshx']
+
+import logging
+
+logger = logging.getLogger()
+
+logger.setLevel(logging.INFO)
+logger.addHandler(logging.StreamHandler())
