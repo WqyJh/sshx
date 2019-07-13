@@ -5,6 +5,8 @@ import re
 import sys
 import argparse
 
+from sshx import logger
+
 from . import __version__
 from . import cfg
 from . import utils
@@ -355,7 +357,7 @@ def invoke(argv):
         print(args.__dict__)
 
     if msg:
-        print('[%s]: %s' % (msg['status'], msg['msg']))
+        logger.info('[%s]: %s' % (msg['status'], msg['msg']))
 
 
 def main():
