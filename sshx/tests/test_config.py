@@ -1,3 +1,5 @@
+import unittest
+
 from sshx.cfg import *
 
 
