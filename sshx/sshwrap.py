@@ -1,5 +1,3 @@
-from __future__ import nested_scopes, generators, division, absolute_import, with_statement, print_function, unicode_literals
-
 import sys
 import time
 import struct
@@ -18,8 +16,6 @@ from . import utils
 from .cfg import read_account
 from .sshx_forward import Forwards
 
-if not utils.PY3:
-    FileNotFoundError = IOError
 
 if utils.NT:
     from pykeyboard import PyKeyboard
