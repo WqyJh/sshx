@@ -140,6 +140,13 @@ host2               192.168.7.2                   test                host1
 host3               192.168.7.3                   root                host2               
 ```
 
+`sshx show` show details for a specified account.
+
+```bash
+sshx show host1     # Show account info
+sshx show host2 -p  # Show account info with password
+```
+
 ### Delete accounts
 
 `sshx del` deletes an account.
