@@ -374,6 +374,7 @@ def invoke(argv):
         d = args.__dict__
         name = d.pop('name')
         del d['command']
+        del d['debug']
         d = {k: v for k, v in d.items() if v is not None}
 
         if args.password:
