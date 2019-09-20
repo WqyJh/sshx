@@ -1,4 +1,4 @@
-__version__ = '0.4.3'
+__version__ = '0.17.5'
 
 __all__ = ['sshx']
 
@@ -6,5 +6,12 @@ import logging
 
 logger = logging.getLogger()
 
-logger.setLevel(logging.INFO)
+
+def set_debug(debug):
+    global logger
+    level = logging.DEBUG if debug else logging.INFO
+    logger.setLevel(level)
+
+
 logger.addHandler(logging.StreamHandler())
+set_debug(False)

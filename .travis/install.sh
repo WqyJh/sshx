@@ -1,6 +1,6 @@
 #!/bin/bash
 
-dep="codecov mock"
+dep="codecov mock twine"
 
 if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
 

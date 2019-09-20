@@ -4,6 +4,7 @@ import sys
 import argparse
 
 from sshx import logger
+from sshx import set_debug
 
 from . import __version__
 from . import cfg
@@ -167,7 +168,7 @@ def handle_list():
         print('%-20s%-30s%-20s%-20s' % (a.name, a.host, a.user, a.via))
 
 
-def handle_connect(name, via='', forwards=None):
+def handle_show(name, password=False):
     account = cfg.read_account(name)
     if not account:
         return {
@@ -175,7 +176,21 @@ def handle_connect(name, via='', forwards=None):
             'msg': 'No account found named by "%s", please check the input.' % name,
         }
 
-    msg = sshwrap.ssh(account, vias=via, forwards=forwards)
+    if not password:
+        del account.password
+
+    print(account)
+
+
+def handle_connect(name, via='', forwards=None, interact=True, extras=''):
+    account = cfg.read_account(name)
+    if not account:
+        return {
+            'status': 'fail',
+            'msg': 'No account found named by "%s", please check the input.' % name,
+        }
+
+    msg = sshwrap.ssh(account, vias=via, forwards=forwards, interact=interact, extras=extras)
 
     return msg
 
@@ -183,7 +198,14 @@ def handle_connect(name, via='', forwards=None):
 def handle_forward(name, maps=None, rmaps=None, via=''):
     forwards = Forwards(maps, rmaps)
 
-    return handle_connect(name, via=via, forwards=forwards)
+    return handle_connect(name, via=via, forwards=forwards, interact=False)
+
+
+def handle_socks(name, via='', port=1080):
+    # -D 1080           dynamic forwarding
+    # -fNT -D 1080      ssh socks
+    extras = '-D {port}'.format(port=port)
+    return handle_connect(name, via=via, interact=False, extras=extras)
 
 
 def handle_scp(src, dst, via=''):
@@ -216,6 +238,8 @@ parser = argparse.ArgumentParser(prog='sshx')
 # version='%(prog)s %(__version__)s' is invalid, too
 parser.add_argument('-v', '--version', action='version',
                     version='%(prog)s ' + __version__)
+parser.add_argument('-d', '--debug', action='store_true',
+                    help='run in debug mode')
 
 
 subparsers = parser.add_subparsers(title='command',
@@ -261,6 +285,11 @@ parser_del.add_argument('name', help='delete an account')
 parser_list = subparsers.add_parser('list', help='list all account')
 
 
+parser_show = subparsers.add_parser('show', help='show account info')
+parser_show.add_argument('name', type=str)
+parser_show.add_argument('-p', '--password', action='store_true')
+
+
 parser_connect = subparsers.add_parser('connect',
                                        help='connect with specified account')
 parser_connect.add_argument('name', type=str)
@@ -270,6 +299,7 @@ parser_connect.add_argument(
 parser_connect.add_argument(
     '-rf', '--rforward', type=str, nargs='+', default=None)
 
+
 parser_forward = subparsers.add_parser('forward',
                                        help='ssh port forward via specified account')
 parser_forward.add_argument('name', type=str)
@@ -278,6 +308,14 @@ parser_forward.add_argument(
     '-f', '--forward', type=str, nargs='+', default=None)
 parser_forward.add_argument(
     '-rf', '--rforward', type=str, nargs='+', default=None)
+
+
+parser_socks = subparsers.add_parser('socks',
+                                       help='establish a socks5 server using ssh')
+parser_socks.add_argument('name', type=str)
+parser_socks.add_argument('-p', '--port', type=int, default=1080)
+parser_socks.add_argument('-v', '--via', type=str, default=None)
+
 
 parser_scp = subparsers.add_parser('scp',
                                    help='scp files with specified account')
@@ -312,6 +350,10 @@ def invoke(argv):
 
     msg = None
 
+    if args.debug:
+        set_debug(True)
+        logger.debug('run in debug mode')
+
     if not args.command:
         parser.print_help()
     elif args.command == 'init':
@@ -342,6 +384,8 @@ def invoke(argv):
         msg = handle_update(name, update_fields=d)
     elif args.command == 'list':
         msg = handle_list()
+    elif args.command == 'show':
+        msg = handle_show(args.name, password=args.password)
     elif args.command == 'del':
         msg = handle_del(args.name)
     elif args.command == 'connect':
@@ -349,6 +393,8 @@ def invoke(argv):
     elif args.command == 'forward':
         msg = handle_forward(args.name, via=args.via,
                              maps=args.forward, rmaps=args.rforward)
+    elif args.command == 'socks':
+        msg = handle_socks(args.name, via=args.via, port=args.port)
     elif args.command == 'scp':
         msg = handle_scp(args.src, args.dst, via=args.via)
     elif args.command == 'exec':

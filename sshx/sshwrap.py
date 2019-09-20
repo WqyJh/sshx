@@ -96,6 +96,9 @@ def sigwinch_passthrough(p):
 
 
 def ssh_pexpect(account):
+    '''
+    Deprecated
+    '''
     from pexpect import pxssh
     s = pxssh.pxssh(options=dict(StrictHostKeyChecking="no",
                                  UserKnownHostsFile="/dev/null"))
@@ -117,11 +120,11 @@ def ssh_pexpect(account):
     s.interact()
 
 
-_SSH_COMMAND_PASSWORD = 'ssh {jump} {forwards} {user}@{host} -p {port} \
+_SSH_COMMAND_PASSWORD = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} \
 -o PreferredAuthentications=password \
 -o StrictHostKeyChecking=no \
 -o UserKnownHostsFile=/dev/null'
-_SSH_COMMAND_IDENTITY = 'ssh {jump} {forwards} {user}@{host} -p {port} -i {identity}'
+_SSH_COMMAND_IDENTITY = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} -i {identity}'
 _SSH_DEST = '{user}@{host}:{port}'
 _SCP_COMMAND_PASSWORD = 'scp -r \
 -oPreferredAuthentications=password \
@@ -162,9 +165,18 @@ def compile_jumps(account, vias=None, prefix='-J '):
     return jump, passwords
 
 
-def ssh_pexpect2(account, vias=None, forwards=None):
+def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True):
     import pexpect
     jump, passwords = compile_jumps(account, vias=vias)
+
+    if not interact:
+        '''
+        -f              background
+        -N              do not execute remote command
+        -T              do not allocate pty
+        -fNT            non interactive
+        '''
+        extras = '-fNT ' + extras
 
     _forwards = forwards.compile() if forwards else ''
 
@@ -173,13 +185,15 @@ def ssh_pexpect2(account, vias=None, forwards=None):
                                                forwards=_forwards,
                                                user=account.user,
                                                host=account.host,
-                                               port=account.port, identity=account.identity)
+                                               port=account.port, identity=account.identity,
+                                               extras=extras)
     else:
         command = _SSH_COMMAND_PASSWORD.format(jump=jump,
                                                forwards=_forwards,
                                                user=account.user,
                                                host=account.host,
-                                               port=account.port)
+                                               port=account.port,
+                                               extras=extras)
     try:
         logger.debug(command)
 
@@ -196,63 +210,20 @@ def ssh_pexpect2(account, vias=None, forwards=None):
             p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
             p.sendline(account.password)
 
-        set_winsize(p)  # Adjust window size
-        # Set auto-adjust window size
-        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
+        if interact:
+            set_winsize(p)  # Adjust window size
+            # Set auto-adjust window size
+            signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
-        # If don't send an '\n', users have to press enter manually after
-        # interact() is called
-        # p.send('\x1b\x00')  # Send Esc
+            # If don't send an '\n', users have to press enter manually after
+            # interact() is called
+            # p.send('\x1b\x00')  # Send Esc
+            # p.interact()
+        else:
+            p.send('\x1b\x00')  # Send Esc
+
         p.interact()
-    except Exception as e:
-        logger.debug(e)
-        return {
-            'status': 'fail',
-            'msg': 'Connection failed',
-        }
 
-
-def _ssh_pexpect3(account, vias=None, forwards=None):
-    import pexpect
-    jump, passwords = compile_jumps(account, vias=vias)
-
-    _forwards = forwards.compile(prefix='') if forwards else ''
-
-    if account.identity:
-        command = _SSH_COMMAND_IDENTITY.format(jump=jump,
-                                               forwards=_forwards,
-                                               user=account.user,
-                                               host=account.host,
-                                               port=account.port, identity=account.identity)
-    else:
-        command = _SSH_COMMAND_PASSWORD.format(jump=jump,
-                                               forwards=_forwards,
-                                               user=account.user,
-                                               host=account.host,
-                                               port=account.port)
-    try:
-        logger.debug(command)
-
-        p = pexpect.spawn(command)
-
-        # Passwords for jump hosts
-        if passwords:
-            for password in passwords:
-                p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
-                p.sendline(password)
-
-        # Password for dest host
-        if not account.identity:
-            p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
-            p.sendline(account.password)
-
-        p.sendline()
-
-        return {
-            'status': 'success',
-            'msg': 'Connected',
-            'p': p,
-        }
     except Exception as e:
         logger.debug(e)
         return {
@@ -331,7 +302,7 @@ def scp_pexpect2(account, targets, jumps):
 
     # Establish port forwarding
     vias = ','.join([a.name for a in reversed(jumps)])
-    ret = _ssh_pexpect3(jump1, vias=vias, forwards=forwards)
+    ret = ssh_pexpect2(jump1, vias=vias, forwards=forwards, interact=False)
     if ret['status'] == 'fail':
         return ret
 
@@ -392,7 +363,7 @@ def _ssh_command_password(account):
         sys.stdin.flush()
 
 
-def ssh_command(account, vias=None, forwards=None):
+def ssh_command(account, vias=None, forwards=None, interact=True, extras=''):
     if utils.NT:
         if account.identity:
             command = _SSH_COMMAND_IDENTITY.format(
@@ -402,8 +373,7 @@ def ssh_command(account, vias=None, forwards=None):
         else:
             _ssh_command_password(account)
     else:
-        # ssh_pexpect(account)
-        return ssh_pexpect2(account, vias=vias, forwards=forwards)
+        return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=interact)
 
 
 def has_command(command):
@@ -419,9 +389,9 @@ def has_command(command):
     return True
 
 
-def ssh(account, vias=None, forwards=None):
+def ssh(account, vias=None, forwards=None, extras='', interact=True):
     if has_command('ssh'):
-        return ssh_command(account, vias=vias, forwards=forwards)
+        return ssh_command(account, vias=vias, forwards=forwards, extras=extras, interact=interact)
     else:
         return ssh_paramiko(account)
 

@@ -23,7 +23,7 @@ class Forwards(object):
         self.forward = Forward(maps, True) if maps else None
         self.rforward = Forward(rmaps, False) if rmaps else None
 
-    def compile(self, prefix='-fNT'):
+    def compile(self):
         forward = self.forward.compile() if self.forward else ''
         rforward = self.rforward.compile() if self.rforward else ''
-        return '%s %s %s' % (prefix, forward, rforward)
+        return '%s %s' % (forward, rforward)
