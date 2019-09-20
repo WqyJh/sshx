@@ -72,12 +72,14 @@ class CommandTest(unittest.TestCase):
                 sshx.invoke(['update', NAME1, '-H', HOST1])
                 m.assert_called_with(NAME1, update_fields={
                     'host': HOST1,
+                    'debug': False,
                 })
 
                 sshx.invoke(['update', NAME1, '-H', HOST1, '-P',
                              PORT1, '-u', USER1, '-p', '-i', IDENTITY1, '-v', NAME2])
                 m_read_password.assert_called_once()
                 m.assert_called_with(NAME1, update_fields={
+                    'debug': False,
                     'host': HOST1,
                     'port': PORT1,
                     'user': USER1,
