@@ -199,6 +199,22 @@ sshx connect host1 -v host2,host3
 via field will be ignored.
 
 
+### Create socks5 proxies
+
+`sshx socks` creates socks5 proxies.
+
+```bash
+sshx socks host1 # create socks proxy on port 1080
+sshx socks host1 -p 1080 # create socks proxy on port 1081
+```
+
+Why create socks5 proxies with ssh?
+
+Because it's very simple and safe.
+- `simple` no configurations and installations, all you need is just an ssh server
+- `safe` all traffic will be encrypted by ssh, safer than `shadowsocks`
+
+
 ### Create port forwardings
 
 `sshx forward` creates port fowardings.
