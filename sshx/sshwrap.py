@@ -166,10 +166,16 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True):
     import pexpect
     jump, passwords = compile_jumps(account, vias=vias)
 
-    if forwards:
-        _forwards = forwards.compile() if interact else forwards.compile(prefix='')
-    else:
-        _forwards=''
+    if not interact:
+        '''
+        -f              background
+        -N              do not execute remote command
+        -T              do not allocate pty
+        -fNT            non interactive
+        '''
+        extras = '-fNT ' + extras
+
+    _forwards = forwards.compile() if forwards else ''
 
     if account.identity:
         command = _SSH_COMMAND_IDENTITY.format(jump=jump,
@@ -209,15 +215,12 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True):
             # If don't send an '\n', users have to press enter manually after
             # interact() is called
             # p.send('\x1b\x00')  # Send Esc
-            p.interact()
+            # p.interact()
         else:
-            p.sendline()
+            p.send('\x1b\x00')  # Send Esc
 
-            return {
-                'status': 'success',
-                'msg': 'Connected',
-                'p': p,
-            }
+        p.interact()
+
     except Exception as e:
         logger.debug(e)
         return {
@@ -357,7 +360,7 @@ def _ssh_command_password(account):
         sys.stdin.flush()
 
 
-def ssh_command(account, vias=None, forwards=None, extras=''):
+def ssh_command(account, vias=None, forwards=None, interact=True, extras=''):
     if utils.NT:
         if account.identity:
             command = _SSH_COMMAND_IDENTITY.format(
@@ -368,7 +371,7 @@ def ssh_command(account, vias=None, forwards=None, extras=''):
             _ssh_command_password(account)
     else:
         # ssh_pexpect(account)
-        return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=True)
+        return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=interact)
 
 
 def has_command(command):
@@ -384,9 +387,9 @@ def has_command(command):
     return True
 
 
-def ssh(account, vias=None, forwards=None, extras=''):
+def ssh(account, vias=None, forwards=None, extras='', interact=True):
     if has_command('ssh'):
-        return ssh_command(account, vias=vias, forwards=forwards, extras=extras)
+        return ssh_command(account, vias=vias, forwards=forwards, extras=extras, interact=interact)
     else:
         return ssh_paramiko(account)
 
