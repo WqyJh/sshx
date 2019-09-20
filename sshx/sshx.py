@@ -4,6 +4,7 @@ import sys
 import argparse
 
 from sshx import logger
+from sshx import set_debug
 
 from . import __version__
 from . import cfg
@@ -230,6 +231,8 @@ parser = argparse.ArgumentParser(prog='sshx')
 # version='%(prog)s %(__version__)s' is invalid, too
 parser.add_argument('-v', '--version', action='version',
                     version='%(prog)s ' + __version__)
+parser.add_argument('-d', '--debug', action='store_true',
+                    help='run in debug mode')
 
 
 subparsers = parser.add_subparsers(title='command',
@@ -330,6 +333,10 @@ def invoke(argv):
     args = parser.parse_args(argv)
 
     msg = None
+
+    if args.debug:
+        set_debug(True)
+        logger.debug('run in debug mode')
 
     if not args.command:
         parser.print_help()
