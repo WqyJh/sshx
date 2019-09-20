@@ -1,84 +1,67 @@
 # Changelog
 
 
-## [Unreleased]
+## 0.17.5
+#### New Features
 
-### New Features
-- add logging
+* add socks command
+* add debug switch
+* add command show
 
+#### Fixes
 
-### Bug Fixes
-- remove prints
+* fix unittest
+* fix uploading failure on OSX
 
+## 0.4.3
+#### New Features
 
-
-
-
-### Administration and Chores
-- add auto deployment to PYPI
-
-
-
-
-## Version 0.3.0 (2019-07-12)
-
-### New Features
-- add sshx forward command
-- add scp command
-- add connect via multiple jump hosts
+* remove python 2 support
 
 
-### Bug Fixes
-- fix tests.test_connect
+## 0.3.1
+#### New Features
+
+* add logging
+
+#### Fixes
+
+* remove prints
+
+## 0.3.0
+#### New Features
+
+* add scp via multiple jump hosts
+* add connect via multiple jump hosts
+* add jump host for scp
+* add scp command
+* forward without a shell
+* add sshx forward command
+
+#### Fixes
+
+* fix tests.test_connect
+
+## 0.2.1
+#### New Features
+
+* add via argument for connect
 
 
+## 0.2.0
+#### New Features
 
+* add jump host in command line
+* add jump connection for pexpect
 
+#### Fixes
 
+* fix jump connection error
 
+## 0.1.0
+#### New Features
 
-
-## Version 0.2.1 (2019-06-23)
-
-### New Features
-- add via argument for connect
-
-
-
-
-
-
-
-
-
-## Version 0.2.0 (2019-06-23)
-
-### New Features
-- add jump connection for pexpect
-- add jump host in command line
-
-
-
-### Refactoring
-- Use Account in sshwrap
-
-
-
-
-
-
-
-## Version 0.1.0 (2018-10-18)
-
-### New Features
-- Add auto-adjust window size
-- Add test for add command's abbreviation
-
-
-
-
-
-
-
-
+* Add test for add command's abbreviation
+* Add abbrev syntax for add command
+* Add auto-adjust window size
 
