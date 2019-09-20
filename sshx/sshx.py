@@ -167,6 +167,20 @@ def handle_list():
         print('%-20s%-30s%-20s%-20s' % (a.name, a.host, a.user, a.via))
 
 
+def handle_show(name, password=False):
+    account = cfg.read_account(name)
+    if not account:
+        return {
+            'status': 'fail',
+            'msg': 'No account found named by "%s", please check the input.' % name,
+        }
+
+    if not password:
+        del account.password
+
+    print(account)
+
+
 def handle_connect(name, via='', forwards=None):
     account = cfg.read_account(name)
     if not account:
@@ -261,6 +275,11 @@ parser_del.add_argument('name', help='delete an account')
 parser_list = subparsers.add_parser('list', help='list all account')
 
 
+parser_show = subparsers.add_parser('show', help='show account info')
+parser_show.add_argument('name', type=str)
+parser_show.add_argument('-p', '--password', action='store_true')
+
+
 parser_connect = subparsers.add_parser('connect',
                                        help='connect with specified account')
 parser_connect.add_argument('name', type=str)
@@ -342,6 +361,8 @@ def invoke(argv):
         msg = handle_update(name, update_fields=d)
     elif args.command == 'list':
         msg = handle_list()
+    elif args.command == 'show':
+        msg = handle_show(args.name, password=args.password)
     elif args.command == 'del':
         msg = handle_del(args.name)
     elif args.command == 'connect':
