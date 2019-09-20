@@ -96,6 +96,9 @@ def sigwinch_passthrough(p):
 
 
 def ssh_pexpect(account):
+    '''
+    Deprecated
+    '''
     from pexpect import pxssh
     s = pxssh.pxssh(options=dict(StrictHostKeyChecking="no",
                                  UserKnownHostsFile="/dev/null"))
@@ -370,7 +373,6 @@ def ssh_command(account, vias=None, forwards=None, interact=True, extras=''):
         else:
             _ssh_command_password(account)
     else:
-        # ssh_pexpect(account)
         return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=interact)
 
 
