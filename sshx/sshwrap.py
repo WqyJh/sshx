@@ -81,7 +81,7 @@ _SCP_COMMAND_IDENTITY = 'scp -r -P {port} {jump} {src} {dst} -i {identity}'
 
 def find_vias(vias):
     _vias = vias.split(',')
-    return [read_account(v) for v in reversed(_vias)]
+    return [read_account(v) for v in _vias]
 
 
 def find_jumps(account):
