@@ -64,11 +64,12 @@ def sigwinch_passthrough(p):
     return _sigwinch_passthrough
 
 
-_SSH_COMMAND_PASSWORD = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} \
+_SSH_COMMAND_PASSWORD = 'ssh \
 -o PreferredAuthentications=password \
 -o StrictHostKeyChecking=no \
--o UserKnownHostsFile=/dev/null'
-_SSH_COMMAND_IDENTITY = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} -i {identity}'
+-o UserKnownHostsFile=/dev/null \
+{extras} {jump} {forwards} {user}@{host} -p {port} {exec}'
+_SSH_COMMAND_IDENTITY = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} -i {identity} {exec}'
 _SSH_DEST = '{user}@{host}:{port}'
 _SCP_COMMAND_PASSWORD = 'scp -r \
 -oPreferredAuthentications=password \
@@ -109,7 +110,7 @@ def compile_jumps(account, vias=None, prefix='-J '):
     return jump, passwords
 
 
-def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True):
+def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, exec=''):
     import pexpect
     jump, passwords = compile_jumps(account, vias=vias)
 
@@ -130,14 +131,16 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True):
                                                user=account.user,
                                                host=account.host,
                                                port=account.port, identity=account.identity,
-                                               extras=extras)
+                                               extras=extras,
+                                               exec=exec)
     else:
         command = _SSH_COMMAND_PASSWORD.format(jump=jump,
                                                forwards=_forwards,
                                                user=account.user,
                                                host=account.host,
                                                port=account.port,
-                                               extras=extras)
+                                               extras=extras,
+                                               exec=exec)
     try:
         logger.debug(command)
 
@@ -302,8 +305,8 @@ def has_command(command):
     return True
 
 
-def ssh(account, vias=None, forwards=None, extras='', interact=True):
-    return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=interact)
+def ssh(account, vias=None, forwards=None, extras='', interact=True, exec=''):
+    return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=interact, exec=exec)
 
 
 def scp(account, targets, vias=None):
