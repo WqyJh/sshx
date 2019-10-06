@@ -157,13 +157,14 @@ def handle_del(name):
         return MSG_CONFIG_NOT_FOUND
 
 
-def handle_list():
+def handle_list(key='name', reverse=False):
     config = cfg.read_config()
     if not config:
         return MSG_CONFIG_BROKEN
 
     print('%-20s%-30s%-20s%-20s' % ('name', 'host', 'user', 'via'))
     print('%-20s%-30s%-20s%-20s' % ('-----', '-----', '-----', '-----'))
+    config.accounts.sort(key=lambda a: str.lower(getattr(a, key)), reverse=reverse)
     for a in config.accounts:
         print('%-20s%-30s%-20s%-20s' % (a.name, a.host, a.user, a.via))
 
@@ -290,6 +291,9 @@ parser_del.add_argument('name', help='delete an account')
 
 
 parser_list = subparsers.add_parser('list', help='list all account')
+parser_list.add_argument('--sort', type=str, choices=['name', 'host', 'user'], default='name',
+                        help='sort by keys')
+parser_list.add_argument('--reverse', action='store_true', default=False)
 
 
 parser_show = subparsers.add_parser('show', help='show account info')
@@ -393,7 +397,7 @@ def invoke(argv):
 
         msg = handle_update(name, update_fields=d)
     elif args.command == 'list':
-        msg = handle_list()
+        msg = handle_list(key=args.sort, reverse=args.reverse)
     elif args.command == 'show':
         msg = handle_show(args.name, password=args.password)
     elif args.command == 'del':
