@@ -209,10 +209,10 @@ def handle_socks(name, via='', port=1080):
     return handle_connect(name, via=via, interact=False, extras=extras)
 
 
-def handle_exec(name, via='', tty=True, interact=False, exec=[]):
+def handle_exec(name, via='', tty=True, exec=[]):
     _exec = ' '.join(exec)
     extras = '-t' if tty else ''
-    return handle_connect(name, via=via, interact=interact, extras=extras, exec=_exec)
+    return handle_connect(name, via=via, extras=extras, exec=_exec)
 
 
 def handle_scp(src, dst, via=''):
@@ -336,7 +336,6 @@ parser_exec = subparsers.add_parser('exec',
 parser_exec.add_argument('name', type=str)
 parser_exec.add_argument('cmd', nargs=argparse.REMAINDER)
 parser_exec.add_argument('-v', '--via', type=str, default=None)
-parser_exec.add_argument('--interact', action='store_true', default=True)
 parser_exec.add_argument('--tty', action='store_true', default=False)
 
 
@@ -409,8 +408,7 @@ def invoke(argv):
     elif args.command == 'scp':
         msg = handle_scp(args.src, args.dst, via=args.via)
     elif args.command == 'exec':
-        msg = handle_exec(args.name, via=args.via, tty=args.tty,
-                          interact=args.interact, exec=args.cmd)
+        msg = handle_exec(args.name, via=args.via, tty=args.tty, exec=args.cmd)
 
     if msg:
         logger.info('[%s]: %s' % (msg['status'], msg['msg']))

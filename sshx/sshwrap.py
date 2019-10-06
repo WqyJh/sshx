@@ -157,17 +157,9 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ex
             p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
             p.sendline(account.password)
 
-        if interact:
-            set_winsize(p)  # Adjust window size
-            # Set auto-adjust window size
-            signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
-
-            # If don't send an '\n', users have to press enter manually after
-            # interact() is called
-            # p.send('\x1b\x00')  # Send Esc
-            # p.interact()
-        else:
-            p.send('\x1b\x00')  # Send Esc
+        set_winsize(p)  # Adjust window size
+        # Set auto-adjust window size
+        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
         p.interact()
 
