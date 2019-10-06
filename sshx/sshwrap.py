@@ -64,11 +64,12 @@ def sigwinch_passthrough(p):
     return _sigwinch_passthrough
 
 
-_SSH_COMMAND_PASSWORD = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} \
+_SSH_COMMAND_PASSWORD = 'ssh \
 -o PreferredAuthentications=password \
 -o StrictHostKeyChecking=no \
--o UserKnownHostsFile=/dev/null'
-_SSH_COMMAND_IDENTITY = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} -i {identity}'
+-o UserKnownHostsFile=/dev/null \
+{extras} {jump} {forwards} {user}@{host} -p {port} {exec}'
+_SSH_COMMAND_IDENTITY = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} -i {identity} {exec}'
 _SSH_DEST = '{user}@{host}:{port}'
 _SCP_COMMAND_PASSWORD = 'scp -r \
 -oPreferredAuthentications=password \
@@ -80,7 +81,7 @@ _SCP_COMMAND_IDENTITY = 'scp -r -P {port} {jump} {src} {dst} -i {identity}'
 
 def find_vias(vias):
     _vias = vias.split(',')
-    return [read_account(v) for v in reversed(_vias)]
+    return [read_account(v) for v in _vias]
 
 
 def find_jumps(account):
@@ -109,7 +110,7 @@ def compile_jumps(account, vias=None, prefix='-J '):
     return jump, passwords
 
 
-def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True):
+def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, exec=''):
     import pexpect
     jump, passwords = compile_jumps(account, vias=vias)
 
@@ -130,14 +131,16 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True):
                                                user=account.user,
                                                host=account.host,
                                                port=account.port, identity=account.identity,
-                                               extras=extras)
+                                               extras=extras,
+                                               exec=exec)
     else:
         command = _SSH_COMMAND_PASSWORD.format(jump=jump,
                                                forwards=_forwards,
                                                user=account.user,
                                                host=account.host,
                                                port=account.port,
-                                               extras=extras)
+                                               extras=extras,
+                                               exec=exec)
     try:
         logger.debug(command)
 
@@ -154,17 +157,9 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True):
             p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
             p.sendline(account.password)
 
-        if interact:
-            set_winsize(p)  # Adjust window size
-            # Set auto-adjust window size
-            signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
-
-            # If don't send an '\n', users have to press enter manually after
-            # interact() is called
-            # p.send('\x1b\x00')  # Send Esc
-            # p.interact()
-        else:
-            p.send('\x1b\x00')  # Send Esc
+        set_winsize(p)  # Adjust window size
+        # Set auto-adjust window size
+        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
         p.interact()
 
@@ -302,8 +297,8 @@ def has_command(command):
     return True
 
 
-def ssh(account, vias=None, forwards=None, extras='', interact=True):
-    return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=interact)
+def ssh(account, vias=None, forwards=None, extras='', interact=True, exec=''):
+    return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=interact, exec=exec)
 
 
 def scp(account, targets, vias=None):
