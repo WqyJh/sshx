@@ -21,7 +21,7 @@ MSG_CONFIG_BROKEN = {
 
 MSG_CONFIG_NOT_FOUND = {
     'status': 'fail',
-    'msg': 'Account exists!',
+    'msg': 'Account not found!',
 }
 
 
@@ -276,7 +276,8 @@ parser_add.add_argument('-v', '--via', type=str, default='')
 parser_update = subparsers.add_parser('update',
                                       help='update an specified account')
 parser_update.add_argument('name', type=str,
-                           help='assign an name to this account')
+                           help='account name')
+parser_update.add_argument('-n', '--rename', type=str, default=None, help='new name')
 parser_update.add_argument('-H', '--host', type=str, default=None)
 parser_update.add_argument('-P', '--port', type=str, default=None)
 parser_update.add_argument('-u', '--user', type=str, default=None)
@@ -382,6 +383,8 @@ def invoke(argv):
     elif args.command == 'update':
         d = args.__dict__
         name = d.pop('name')
+        if 'rename' in d:
+            d['name'] = d.pop('rename')
         del d['command']
         del d['debug']
         d = {k: v for k, v in d.items() if v is not None}
