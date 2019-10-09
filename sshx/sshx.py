@@ -21,7 +21,7 @@ MSG_CONFIG_BROKEN = {
 
 MSG_CONFIG_NOT_FOUND = {
     'status': 'fail',
-    'msg': 'Account exists!',
+    'msg': 'Account not found!',
 }
 
 
@@ -157,13 +157,14 @@ def handle_del(name):
         return MSG_CONFIG_NOT_FOUND
 
 
-def handle_list():
+def handle_list(key='name', reverse=False):
     config = cfg.read_config()
     if not config:
         return MSG_CONFIG_BROKEN
 
     print('%-20s%-30s%-20s%-20s' % ('name', 'host', 'user', 'via'))
     print('%-20s%-30s%-20s%-20s' % ('-----', '-----', '-----', '-----'))
+    config.accounts.sort(key=lambda a: str.lower(getattr(a, key)), reverse=reverse)
     for a in config.accounts:
         print('%-20s%-30s%-20s%-20s' % (a.name, a.host, a.user, a.via))
 
@@ -182,7 +183,7 @@ def handle_show(name, password=False):
     print(account)
 
 
-def handle_connect(name, via='', forwards=None, interact=True, extras=''):
+def handle_connect(name, via='', forwards=None, interact=True, extras='', exec=''):
     account = cfg.read_account(name)
     if not account:
         return {
@@ -190,7 +191,8 @@ def handle_connect(name, via='', forwards=None, interact=True, extras=''):
             'msg': 'No account found named by "%s", please check the input.' % name,
         }
 
-    msg = sshwrap.ssh(account, vias=via, forwards=forwards, interact=interact, extras=extras)
+    msg = sshwrap.ssh(account, vias=via, forwards=forwards,
+                      interact=interact, extras=extras, exec=exec)
 
     return msg
 
@@ -206,6 +208,12 @@ def handle_socks(name, via='', port=1080):
     # -fNT -D 1080      ssh socks
     extras = '-D {port}'.format(port=port)
     return handle_connect(name, via=via, interact=False, extras=extras)
+
+
+def handle_exec(name, via='', tty=True, exec=[]):
+    _exec = ' '.join(exec)
+    extras = '-t' if tty else ''
+    return handle_connect(name, via=via, extras=extras, exec=_exec)
 
 
 def handle_scp(src, dst, via=''):
@@ -269,7 +277,8 @@ parser_add.add_argument('-v', '--via', type=str, default='')
 parser_update = subparsers.add_parser('update',
                                       help='update an specified account')
 parser_update.add_argument('name', type=str,
-                           help='assign an name to this account')
+                           help='account name')
+parser_update.add_argument('-n', '--rename', type=str, default=None, help='new name')
 parser_update.add_argument('-H', '--host', type=str, default=None)
 parser_update.add_argument('-P', '--port', type=str, default=None)
 parser_update.add_argument('-u', '--user', type=str, default=None)
@@ -283,6 +292,9 @@ parser_del.add_argument('name', help='delete an account')
 
 
 parser_list = subparsers.add_parser('list', help='list all account')
+parser_list.add_argument('--sort', type=str, choices=['name', 'host', 'user'], default='name',
+                        help='sort by keys')
+parser_list.add_argument('--reverse', action='store_true', default=False)
 
 
 parser_show = subparsers.add_parser('show', help='show account info')
@@ -311,7 +323,7 @@ parser_forward.add_argument(
 
 
 parser_socks = subparsers.add_parser('socks',
-                                       help='establish a socks5 server using ssh')
+                                     help='establish a socks5 server using ssh')
 parser_socks.add_argument('name', type=str)
 parser_socks.add_argument('-p', '--port', type=int, default=1080)
 parser_socks.add_argument('-v', '--via', type=str, default=None)
@@ -327,7 +339,9 @@ parser_scp.add_argument('dst', type=str)
 parser_exec = subparsers.add_parser('exec',
                                     help='execute a command on the remote host')
 parser_exec.add_argument('name', type=str)
-parser_exec.add_argument('execute', nargs=argparse.REMAINDER)
+parser_exec.add_argument('cmd', nargs=argparse.REMAINDER)
+parser_exec.add_argument('-v', '--via', type=str, default=None)
+parser_exec.add_argument('--tty', action='store_true', default=False)
 
 
 def parse_user_host_port(s):
@@ -373,7 +387,10 @@ def invoke(argv):
     elif args.command == 'update':
         d = args.__dict__
         name = d.pop('name')
+        if 'rename' in d:
+            d['name'] = d.pop('rename')
         del d['command']
+        del d['debug']
         d = {k: v for k, v in d.items() if v is not None}
 
         if args.password:
@@ -383,7 +400,7 @@ def invoke(argv):
 
         msg = handle_update(name, update_fields=d)
     elif args.command == 'list':
-        msg = handle_list()
+        msg = handle_list(key=args.sort, reverse=args.reverse)
     elif args.command == 'show':
         msg = handle_show(args.name, password=args.password)
     elif args.command == 'del':
@@ -398,7 +415,7 @@ def invoke(argv):
     elif args.command == 'scp':
         msg = handle_scp(args.src, args.dst, via=args.via)
     elif args.command == 'exec':
-        print(args.__dict__)
+        msg = handle_exec(args.name, via=args.via, tty=args.tty, exec=args.cmd)
 
     if msg:
         logger.info('[%s]: %s' % (msg['status'], msg['msg']))
