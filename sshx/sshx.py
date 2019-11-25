@@ -456,9 +456,9 @@ def invoke(argv):
         name = d.pop('name')
         if 'rename' in d:
             d['name'] = d.pop('rename')
-        del d['command']
-        del d['debug']
-        d = {k: v for k, v in d.items() if v is not None}
+        print(d)
+        updatable_fields = ['name', 'user', 'host', 'port', 'password', 'identity', 'via']
+        d = {k: v for k, v in d.items() if k in updatable_fields and v is not None}
 
         if args.password:
             d['password'] = utils.read_password()
