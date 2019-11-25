@@ -313,11 +313,10 @@ sshx --interval 30 --countmax 60 connect host1
 python setup.py test
 ```
 
-## Todo
+## Changelog
 
-- [x] scp support
-- [x] jump host support
-
-
-## Bugs
+```bash
+npm install -g auto-changelog
+auto-changelog --latest-version <version>
+```
 
