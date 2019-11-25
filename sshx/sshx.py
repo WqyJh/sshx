@@ -301,7 +301,7 @@ parser.add_argument('--interval', type=int, default=0,
 parser.add_argument('--countmax', type=int, default=3,
                     help='ServerAliveCountMax for ssh_config')
 parser.add_argument('--retry', action=store_retry, default=0,
-                    help='Reconnect after connection closed, repeat for retry times. Supported values are "always" or non negative integer". If retry was enabled, --interval must be greater than 0.')
+                    help='Reconnect after connection closed, repeat for retry times. Supported values are "always" or non negative integer. If retry was enabled, --interval must be greater than 0.')
 parser.add_argument('--retry-interval', type=non_negative_int, default=0,
                     help='Sleep seconds before every retry')
 

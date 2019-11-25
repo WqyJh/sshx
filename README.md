@@ -17,15 +17,11 @@ sshx is a lightweight wrapper for ssh/scp command, which has the following featu
 
 ## Installation
 
+Supported platform **Linux**, **macOS**, **WSL/cygwin/msys2 on Windows)**.
+
+**Native Windows support was removed.**
+
 ### Install from pypi
-
-For **Windows**:
-
-```bash
-pip install --extra-index-url https://wqyjh.github.io/python-wheels/ sshx
-```
-
-For **Linux**, **macOS**:
 
 ```bash
 pip install sshx
@@ -33,21 +29,6 @@ pip install sshx
 
 ### Install from source
 
-For **Windows**:
-```bash
-pip install --extra-index-url https://wqyjh.github.io/python-wheels/ git+https://github.com/WqyJh/sshx
-
-# Or
-
-pip install -i  https://wqyjh.github.io/python-wheels/ pyHook
-python setup.py install
-
-# Or
-
-pip install -r requirements.txt
-```
-
-For **Linux**, **macOX**:
 ```bash
 pip install git+https://github.com/WqyJh/sshx
 
@@ -55,9 +36,6 @@ pip install git+https://github.com/WqyJh/sshx
 
 python setup.py install
 
-# Or
-
-pip install -r requirements.txt
 ```
 
 
@@ -171,10 +149,8 @@ sshx update host1 -p
 # change the host1's identity to identity2
 sshx update host1 -i identity2
 
-# TODO
-# change the host1's name to host2, and the next time you want to 
-# change the account you have to use `sshx update host2 ...`
-#sshx update host1 -n host2
+# change the host1's name to host2
+sshx update host1 -n host2
 ```
 
 ### Connect accounts
@@ -287,6 +263,47 @@ sshx exec host1 ls -al
 sshx exec host1 /bin/bash
 # Execute an command on host1 via host2
 sshx exec -v host2 host1 ls -al
+```
+
+
+### Global Arguments
+
+```bash
+  -d, --debug           run in debug mode
+  --interval INTERVAL   ServerAliveInterval for ssh_config.
+  --countmax COUNTMAX   ServerAliveCountMax for ssh_config
+  --retry RETRY         Reconnect after connection closed, repeat for retry
+                        times. Supported values are "always" or non negative
+                        integer. If retry was enabled, --interval must be
+                        greater than 0.
+  --retry-interval RETRY_INTERVAL
+                        Sleep seconds before every retry
+```
+
+`--retry` and `--retry-interval` can only be used for `connect`, `forward`, `socks` and `exec` commands.
+
+Create a socks5 proxy and always reconnect immediately when the connection was closed.
+
+```bash
+sshx --interval 1 --countmax 1 --retry always socks host1
+```
+
+Create a socks5 proxy and always reconnect after 5s when the connection was closed.
+
+```bash
+sshx --interval 1 --countmax 1 --retry always --retry-interval 5 socks host1
+```
+
+Create a socks5 proxy and reconnect for 5 times when the connection was close.
+```bash
+sshx --interval 1 --countmax 1 --retry 5 socks host1
+```
+
+Create a ssh connection and set the ServerAlive options. The following options make the ssh client
+sends a keepalive probe to server after no data was transfered for 30s and after probing for 60
+times it would close the connection.
+```bash
+sshx --interval 30 --countmax 60 connect host1
 ```
 
 
