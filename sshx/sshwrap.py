@@ -17,6 +17,9 @@ from .sshx_forward import Forwards
 
 LOCALHOST = '127.0.0.1'
 
+ServerAliveInterval = 0
+ServerAliveCountMax = 3
+
 
 def _connect(f, use_password):
     exception = None
@@ -114,6 +117,7 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
     import pexpect
     jump, passwords = compile_jumps(account, vias=vias)
 
+    # interactive/background/foreground config
     if not interact:
         '''
         -f              background
@@ -121,10 +125,16 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
         -T              do not allocate pty
         -fNT            non interactive
         '''
-        extras = ('-fNT ' if background else '-NT ') + extras
+        extras += (' -fNT' if background else ' -NT')
 
+    # keep alive config
+    if ServerAliveInterval > 0:
+        extras += f' -o ServerAliveInterval={ServerAliveInterval} -o ServerAliveCountMax={ServerAliveCountMax}'
+
+    # port forwarding config
     _forwards = forwards.compile() if forwards else ''
 
+    # compile command
     if account.identity:
         command = _SSH_COMMAND_IDENTITY.format(jump=jump,
                                                forwards=_forwards,
@@ -141,6 +151,8 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
                                                port=account.port,
                                                extras=extras,
                                                exec=exec)
+
+    # connect
     try:
         logger.debug(command)
 
