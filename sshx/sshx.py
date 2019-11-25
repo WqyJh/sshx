@@ -183,7 +183,7 @@ def handle_show(name, password=False):
     print(account)
 
 
-def handle_connect(name, via='', forwards=None, interact=True, extras='', exec=''):
+def handle_connect(name, via='', forwards=None, interact=True, background=False, extras='', exec=''):
     account = cfg.read_account(name)
     if not account:
         return {
@@ -191,23 +191,23 @@ def handle_connect(name, via='', forwards=None, interact=True, extras='', exec='
             'msg': 'No account found named by "%s", please check the input.' % name,
         }
 
-    msg = sshwrap.ssh(account, vias=via, forwards=forwards,
-                      interact=interact, extras=extras, exec=exec)
+    msg = sshwrap.ssh(account, vias=via, forwards=forwards, interact=interact,
+                        background=background, extras=extras, exec=exec)
 
     return msg
 
 
-def handle_forward(name, maps=None, rmaps=None, via=''):
+def handle_forward(name, maps=None, rmaps=None, via='', background=False):
     forwards = Forwards(maps, rmaps)
 
-    return handle_connect(name, via=via, forwards=forwards, interact=False)
+    return handle_connect(name, via=via, forwards=forwards, interact=False, background=background)
 
 
-def handle_socks(name, via='', port=1080):
+def handle_socks(name, via='', port=1080, background=False):
     # -D 1080           dynamic forwarding
     # -fNT -D 1080      ssh socks
     extras = '-D {port}'.format(port=port)
-    return handle_connect(name, via=via, interact=False, extras=extras)
+    return handle_connect(name, via=via, interact=False, background=background,  extras=extras)
 
 
 def handle_exec(name, via='', tty=True, exec=[]):
@@ -320,6 +320,8 @@ parser_forward.add_argument(
     '-f', '--forward', type=str, nargs='+', default=None)
 parser_forward.add_argument(
     '-rf', '--rforward', type=str, nargs='+', default=None)
+parser_forward.add_argument('-b', '--background', action='store_true',
+                        help='run in background')
 
 
 parser_socks = subparsers.add_parser('socks',
@@ -327,6 +329,8 @@ parser_socks = subparsers.add_parser('socks',
 parser_socks.add_argument('name', type=str)
 parser_socks.add_argument('-p', '--port', type=int, default=1080)
 parser_socks.add_argument('-v', '--via', type=str, default=None)
+parser_socks.add_argument('-b', '--background', action='store_true',
+                        help='run in background')
 
 
 parser_scp = subparsers.add_parser('scp',
@@ -408,10 +412,10 @@ def invoke(argv):
     elif args.command == 'connect':
         msg = handle_connect(args.name, via=args.via)
     elif args.command == 'forward':
-        msg = handle_forward(args.name, via=args.via,
-                             maps=args.forward, rmaps=args.rforward)
+        msg = handle_forward(args.name, via=args.via, maps=args.forward, rmaps=args.rforward,
+                            background=args.background)
     elif args.command == 'socks':
-        msg = handle_socks(args.name, via=args.via, port=args.port)
+        msg = handle_socks(args.name, via=args.via, port=args.port, background=args.background)
     elif args.command == 'scp':
         msg = handle_scp(args.src, args.dst, via=args.via)
     elif args.command == 'exec':

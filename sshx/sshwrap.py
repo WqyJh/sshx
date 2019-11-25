@@ -110,7 +110,7 @@ def compile_jumps(account, vias=None, prefix='-J '):
     return jump, passwords
 
 
-def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, exec=''):
+def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, background=False, exec=''):
     import pexpect
     jump, passwords = compile_jumps(account, vias=vias)
 
@@ -121,7 +121,7 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ex
         -T              do not allocate pty
         -fNT            non interactive
         '''
-        extras = '-fNT ' + extras
+        extras = ('-fNT ' if background else '-NT ') + extras
 
     _forwards = forwards.compile() if forwards else ''
 
@@ -297,8 +297,9 @@ def has_command(command):
     return True
 
 
-def ssh(account, vias=None, forwards=None, extras='', interact=True, exec=''):
-    return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=interact, exec=exec)
+def ssh(account, vias=None, forwards=None, extras='', interact=True, background=False, exec=''):
+    return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras,
+                        interact=interact, background=background, exec=exec)
 
 
 def scp(account, targets, vias=None):
