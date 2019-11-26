@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import time
 import argparse
 
 from sshx import logger
@@ -23,6 +24,10 @@ MSG_CONFIG_NOT_FOUND = {
     'status': 'fail',
     'msg': 'Account not found!',
 }
+
+
+RETRY = 0
+RETRY_INTERVAL = 0
 
 
 def perform_init():
@@ -183,7 +188,7 @@ def handle_show(name, password=False):
     print(account)
 
 
-def handle_connect(name, via='', forwards=None, interact=True, extras='', exec=''):
+def handle_connect(name, via='', forwards=None, interact=True, background=False, extras='', exec=''):
     account = cfg.read_account(name)
     if not account:
         return {
@@ -191,23 +196,37 @@ def handle_connect(name, via='', forwards=None, interact=True, extras='', exec='
             'msg': 'No account found named by "%s", please check the input.' % name,
         }
 
-    msg = sshwrap.ssh(account, vias=via, forwards=forwards,
-                      interact=interact, extras=extras, exec=exec)
+    retry = RETRY
+
+    while True:
+        msg = sshwrap.ssh(account, vias=via, forwards=forwards, interact=interact,
+                            background=background, extras=extras, exec=exec)
+        logger.debug(f'retry: {retry} retry_interval: {RETRY_INTERVAL}s')
+
+        if retry == 0:
+            break
+        elif retry == 'always':
+            time.sleep(RETRY_INTERVAL)
+            continue
+        elif retry > 0:
+            retry -= 1
+            time.sleep(RETRY_INTERVAL)
+            continue
 
     return msg
 
 
-def handle_forward(name, maps=None, rmaps=None, via=''):
+def handle_forward(name, maps=None, rmaps=None, via='', background=False):
     forwards = Forwards(maps, rmaps)
 
-    return handle_connect(name, via=via, forwards=forwards, interact=False)
+    return handle_connect(name, via=via, forwards=forwards, interact=False, background=background)
 
 
-def handle_socks(name, via='', port=1080):
+def handle_socks(name, via='', port=1080, background=False):
     # -D 1080           dynamic forwarding
     # -fNT -D 1080      ssh socks
     extras = '-D {port}'.format(port=port)
-    return handle_connect(name, via=via, interact=False, extras=extras)
+    return handle_connect(name, via=via, interact=False, background=background,  extras=extras)
 
 
 def handle_exec(name, via='', tty=True, exec=[]):
@@ -240,6 +259,35 @@ def handle_scp(src, dst, via=''):
     return msg
 
 
+class store_retry(argparse.Action):
+    def __init__(self, nargs=1, **kwargs):
+        super().__init__(nargs=nargs, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        value = values[0]
+        v = None
+
+        try:
+            if value == 'always':
+                v = value
+            elif int(value) >= 0:
+                v = int(value)
+        except ValueError:
+            pass
+
+        if v is None:
+            raise argparse.ArgumentTypeError(f"'{value}' is invalid")
+
+        setattr(namespace, self.dest, v)
+
+
+def non_negative_int(value):
+    ivalue = int(value)
+    if ivalue < 0:
+        raise argparse.ArgumentTypeError(f"{value} is an invalid")
+    return ivalue
+
+
 parser = argparse.ArgumentParser(prog='sshx')
 # Note:
 # version='%(prog)s %s' % __version__ is invalid
@@ -248,6 +296,14 @@ parser.add_argument('-v', '--version', action='version',
                     version='%(prog)s ' + __version__)
 parser.add_argument('-d', '--debug', action='store_true',
                     help='run in debug mode')
+parser.add_argument('--interval', type=int, default=0,
+                    help='ServerAliveInterval for ssh_config.')
+parser.add_argument('--countmax', type=int, default=3,
+                    help='ServerAliveCountMax for ssh_config')
+parser.add_argument('--retry', action=store_retry, default=0,
+                    help='Reconnect after connection closed, repeat for retry times. Supported values are "always" or non negative integer. If retry was enabled, --interval must be greater than 0.')
+parser.add_argument('--retry-interval', type=non_negative_int, default=0,
+                    help='Sleep seconds before every retry')
 
 
 subparsers = parser.add_subparsers(title='command',
@@ -320,6 +376,8 @@ parser_forward.add_argument(
     '-f', '--forward', type=str, nargs='+', default=None)
 parser_forward.add_argument(
     '-rf', '--rforward', type=str, nargs='+', default=None)
+parser_forward.add_argument('-b', '--background', action='store_true',
+                        help='run in background')
 
 
 parser_socks = subparsers.add_parser('socks',
@@ -327,6 +385,8 @@ parser_socks = subparsers.add_parser('socks',
 parser_socks.add_argument('name', type=str)
 parser_socks.add_argument('-p', '--port', type=int, default=1080)
 parser_socks.add_argument('-v', '--via', type=str, default=None)
+parser_socks.add_argument('-b', '--background', action='store_true',
+                        help='run in background')
 
 
 parser_scp = subparsers.add_parser('scp',
@@ -368,6 +428,13 @@ def invoke(argv):
         set_debug(True)
         logger.debug('run in debug mode')
 
+    global RETRY, RETRY_INTERVAL
+    RETRY = args.retry
+    RETRY_INTERVAL = args.retry_interval
+
+    sshwrap.ServerAliveInterval = args.interval
+    sshwrap.ServerAliveCountMax = args.countmax
+
     if not args.command:
         parser.print_help()
     elif args.command == 'init':
@@ -389,9 +456,9 @@ def invoke(argv):
         name = d.pop('name')
         if 'rename' in d:
             d['name'] = d.pop('rename')
-        del d['command']
-        del d['debug']
-        d = {k: v for k, v in d.items() if v is not None}
+        print(d)
+        updatable_fields = ['name', 'user', 'host', 'port', 'password', 'identity', 'via']
+        d = {k: v for k, v in d.items() if k in updatable_fields and v is not None}
 
         if args.password:
             d['password'] = utils.read_password()
@@ -408,10 +475,10 @@ def invoke(argv):
     elif args.command == 'connect':
         msg = handle_connect(args.name, via=args.via)
     elif args.command == 'forward':
-        msg = handle_forward(args.name, via=args.via,
-                             maps=args.forward, rmaps=args.rforward)
+        msg = handle_forward(args.name, via=args.via, maps=args.forward, rmaps=args.rforward,
+                            background=args.background)
     elif args.command == 'socks':
-        msg = handle_socks(args.name, via=args.via, port=args.port)
+        msg = handle_socks(args.name, via=args.via, port=args.port, background=args.background)
     elif args.command == 'scp':
         msg = handle_scp(args.src, args.dst, via=args.via)
     elif args.command == 'exec':

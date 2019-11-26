@@ -29,4 +29,5 @@ def json_load(s):
 
 
 def read_password():
+    '''Read password from PTY'''
     return getpass()

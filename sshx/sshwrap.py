@@ -17,6 +17,9 @@ from .sshx_forward import Forwards
 
 LOCALHOST = '127.0.0.1'
 
+ServerAliveInterval = 0
+ServerAliveCountMax = 3
+
 
 def _connect(f, use_password):
     exception = None
@@ -110,10 +113,11 @@ def compile_jumps(account, vias=None, prefix='-J '):
     return jump, passwords
 
 
-def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, exec=''):
+def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, background=False, exec=''):
     import pexpect
     jump, passwords = compile_jumps(account, vias=vias)
 
+    # interactive/background/foreground config
     if not interact:
         '''
         -f              background
@@ -121,10 +125,16 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ex
         -T              do not allocate pty
         -fNT            non interactive
         '''
-        extras = '-fNT ' + extras
+        extras += (' -fNT' if background else ' -NT')
 
+    # keep alive config
+    if ServerAliveInterval > 0:
+        extras += f' -o ServerAliveInterval={ServerAliveInterval} -o ServerAliveCountMax={ServerAliveCountMax}'
+
+    # port forwarding config
     _forwards = forwards.compile() if forwards else ''
 
+    # compile command
     if account.identity:
         command = _SSH_COMMAND_IDENTITY.format(jump=jump,
                                                forwards=_forwards,
@@ -141,6 +151,8 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ex
                                                port=account.port,
                                                extras=extras,
                                                exec=exec)
+
+    # connect
     try:
         logger.debug(command)
 
@@ -297,8 +309,9 @@ def has_command(command):
     return True
 
 
-def ssh(account, vias=None, forwards=None, extras='', interact=True, exec=''):
-    return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras, interact=interact, exec=exec)
+def ssh(account, vias=None, forwards=None, extras='', interact=True, background=False, exec=''):
+    return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras,
+                        interact=interact, background=background, exec=exec)
 
 
 def scp(account, targets, vias=None):
