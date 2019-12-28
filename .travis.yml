@@ -15,7 +15,8 @@ matrix:
     env: PY=py36
     if: branch = master
 install:
-- "./.travis/install.sh"
+- pip install pipenv
+- pipenv install --dev
 script:
 - coverage run -m unittest discover -t ./ -s sshx/tests
 after_success:
