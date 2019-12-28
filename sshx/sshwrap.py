@@ -173,6 +173,8 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
         # Set auto-adjust window size
         signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
+        p.expect([pexpect.TIMEOUT, '[$|#]'])
+        p.sendline('')
         p.interact()
 
     except Exception as e:
