@@ -8,7 +8,7 @@ logger = logging.getLogger()
 
 
 def set_debug(debug):
-    global logger
+    # global logger
     level = logging.DEBUG if debug else logging.INFO
     logger.setLevel(level)
 
