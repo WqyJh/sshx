@@ -4,6 +4,7 @@ import sys
 import time
 import click
 
+from collections import OrderedDict
 from sshx import logger
 from sshx import set_debug
 
@@ -295,7 +296,20 @@ class RetryType(click.ParamType):
 RETRY_TYPE = RetryType()
 
 
-@click.group()
+class SortedGroup(click.Group):
+    '''Thanks to https://github.com/pallets/click/issues/513#issuecomment-301046782.'''
+    def __init__(self, name=None, commands=None, **attrs):
+        if commands is None:
+            commands = OrderedDict()
+        elif not isinstance(commands, OrderedDict):
+            commands = OrderedDict()
+        click.Group.__init__(self, name=name, commands=commands, **attrs)
+
+    def list_commands(self, ctx):
+        return self.commands.keys()
+
+
+@click.group(cls=SortedGroup)
 @click.version_option(__version__)
 @click.option('-d', '--debug', is_flag=True)
 @click.option('--interval', type=click.IntRange(min=0), default=0,
