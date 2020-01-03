@@ -301,11 +301,11 @@ RETRY_TYPE = RetryType()
 @click.option('--interval', type=click.IntRange(min=0), default=0,
               help='ServerAliveInterval for ssh_config.')
 @click.option('--countmax', type=click.IntRange(min=0), default=3,
-              help='ServerAliveCountMax for ssh_config')
+              help='ServerAliveCountMax for ssh_config.')
 @click.option('--retry', type=RETRY_TYPE, default=0,
               help='Reconnect after connection closed, repeat for retry times. Supported values are "always" or non negative integer. If retry was enabled, --interval must be greater than 0.')
 @click.option('--retry-interval', type=click.IntRange(min=0), default=0,
-              help='Sleep seconds before every retry')
+              help='Sleep seconds before every retry.')
 def cli(debug, interval, countmax, retry, retry_interval):
     set_debug(debug)
 
@@ -317,25 +317,24 @@ def cli(debug, interval, countmax, retry, retry_interval):
     sshwrap.ServerAliveCountMax = countmax
 
 
-@cli.command('init', help='initialize the account storage')
+@cli.command('init', help='Initialize the account storage.')
 @click.option('-f', '--force', is_flag=True,
-              help=f'delete previous existing files in {cfg.CONFIG_DIR} and re-init')
+              help=f'Delete previous existing files in {cfg.CONFIG_DIR} and re-init.')
 def command_init(force):
     return handle_init(force=force)
 
 
-@cli.command('add', help='add an account and assign a name for it')
+@cli.command('add', help='Add an account and assign a name for it.')
 @click.argument('name')
 @click.option('-l', help='<user>@<host>[:port]')
 @click.option('-H', '--host', default=c.DEFAULT_HOST)
 @click.option('-P', '--port', default=c.DEFAULT_PORT)
 @click.option('-u', '--user', default=c.DEFAULT_USER)
 @click.option('-p', '--password', is_flag=True)
-@click.option('-i', '--identity', default='', help='ssh identity file')
-@click.option('-v', '--via', default='', help='account name of jump host')
+@click.option('-i', '--identity', default='', help='SSH identity file.')
+@click.option('-v', '--via', default='', help='Account name of jump host.')
 def command_add(name, l, host, port, user, password, identity, via):
-    logger.info(f'name={name} password={password}')
-    password = utils.read_password() if password else ''
+    password = utils.read_password() if password or not identity else ''
     if l:
         user, host, port = parse_user_host_port(l)
 
@@ -343,9 +342,9 @@ def command_add(name, l, host, port, user, password, identity, via):
                       identity=identity, via=via)
 
 
-@cli.command('update', help='update an specified account')
+@cli.command('update', help='Uupdate an specified account.')
 @click.argument('name')
-@click.option('-n', '--rename', help='new name')
+@click.option('-n', '--rename', help='New name.')
 @click.option('-H', '--host')
 @click.option('-P', '--port')
 @click.option('-u', '--user')
@@ -372,58 +371,57 @@ def command_update(name, rename, host, port, user, password, identity, via):
     return handle_update(name, update_fields=d)
 
 
-@cli.command('del', help='delete an account')
+@cli.command('del', help='Delete an account.')
 @click.argument('name')
 def command_del(name):
     return handle_del(name)
 
 
-@cli.command('list', help='list all account')
+@cli.command('list', help='List all accounts.')
 @click.option('--sort', type=click.Choice(['name', 'host', 'user']),
-              default='name', help='sort by keys')
+              default='name', help='Sort by keys.')
 @click.option('--reverse', is_flag=True)
 def command_list(sort, reverse):
     return handle_list(key=sort, reverse=reverse)
 
 
-@cli.command('show', help='show account info')
+@cli.command('show', help='Show account info.')
 @click.argument('name')
 @click.option('-p', '--password', is_flag=True)
 def command_show(name, password):
     return handle_show(name, password=password)
 
 
-@cli.command('connect', help='connect with specified account')
+@cli.command('connect', help='Connect with specified account.')
 @click.argument('name')
-@click.option('-v', '--via', help='account name of jump host')
+@click.option('-v', '--via', help='Account name of jump host.')
 def command_connect(name, via):
-    '''connect to an account'''
     return handle_connect(name, via=via)
 
 
-@cli.command('forward', help='ssh port forward via specified account')
+@cli.command('forward', help='SSH port forward via specified account.')
 @click.argument('name')
-@click.option('-v', '--via', help='account name of jump host')
-@click.option(
-    '-f', '--forward', multiple=True)
-@click.option(
-    '-rf', '--rforward', multiple=True)
+@click.option('-v', '--via', help='Account name of jump host.')
+@click.option('-f', '--forward', multiple=True,
+              help='[bind_address]:<bind_port>:<remote_address>:<remote_port> => Forward local bind_address:bind_port to remote_address:remote_port.')
+@click.option('-rf', '--rforward', multiple=True,
+              help='<bind_address>:<bind_port>:<local_address>:<local_port> => Forward remote bind_address:bind_port to local local_address:local_port.')
 @click.option('-b', '--background', is_flag=True,
-              help='run in background')
+              help='Run in background.')
 def command_forward(name, via, forward, rforward, background):
     return handle_forward(name, via=via, maps=forward, rmaps=rforward, background=background)
 
 
-@cli.command('socks', help='establish a socks5 server using ssh')
+@cli.command('socks', help='Establish a socks5 server using ssh.')
 @click.argument('name')
 @click.option('-p', '--port', type=click.IntRange(min=1, max=65535), default=1080)
 @click.option('-v', '--via')
-@click.option('-b', '--background', is_flag=True, help='run in background')
+@click.option('-b', '--background', is_flag=True, help='Run in background.')
 def command_socks(name, port, via, background):
     return handle_socks(name, via=via, port=port, background=background)
 
 
-@cli.command('scp', help='scp files with specified account')
+@cli.command('scp', help='Copy files with specified accounts.')
 @click.argument('src')
 @click.argument('dst')
 @click.option('-v', '--via')
@@ -431,7 +429,7 @@ def command_scp(src, dst, via):
     return handle_scp(src, dst, via=via)
 
 
-@cli.command('exec', help='execute a command on the remote host')
+@cli.command('exec', help='Execute a command on the remote host.')
 @click.argument('name')
 @click.argument('cmd', required=True, nargs=-1)
 @click.option('-v', '--via')

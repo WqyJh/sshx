@@ -17,9 +17,11 @@ sshx is a lightweight wrapper for ssh/scp command, which has the following featu
 
 ## Installation
 
-Supported platform **Linux**, **macOS**, **WSL/cygwin/msys2 on Windows)**.
+Supported platform: Python 3 on **Linux**, **macOS**, **WSL/cygwin/msys2 on Windows)**.
 
-**Native Windows support was removed.**
+**Attention: **
+- Native Windows support was removed.
+- Python 2 support was removed.
 
 ### Install from pypi
 
@@ -43,23 +45,25 @@ python setup.py install
 
 1. Initialization.
 
-```bash
-sshx init
-```
+    Perform only once after you've installed sshx.
+
+    ```bash
+    sshx init
+    ```
 
 2. Adding an account.
 
-```bash
-sshx add myhost -l test@192.168.9.155
-```
+    ```bash
+    sshx add myhost -l test@192.168.9.155
+    ```
 
-(This command will ask you to type your password and sshx would store the encrypted password.)
+    (This command will ask you to type your password and sshx would store the encrypted password.)
 
 3. Connect to the account.
 
-```bash
-sshx connect myhost
-```
+    ```bash
+    sshx connect myhost
+    ```
 
 ## Usage
 
@@ -101,7 +105,7 @@ sshx add -l user@host:port -v myhost myhost2
 ```
 
 - Host and user options are required for adding an account.
-- Either a password or a identity option is required for adding an account. You can also specify both of them for an account. In this case, only using identity for authentication(maybe improved later).
+- Either a password or a identity option is required for adding an account. You can also specify both of them for an account. In this case, only using identity for authentication (maybe improved later).
 - Password are input from the prompt, which won't show in the screen.
 
 
@@ -181,7 +185,7 @@ via field will be ignored.
 
 ```bash
 sshx socks host1 # create socks proxy on port 1080
-sshx socks host1 -p 1080 # create socks proxy on port 1081
+sshx socks host1 -p 1081 # create socks proxy on port 1081
 ```
 
 Why create socks5 proxies with ssh?
@@ -258,12 +262,14 @@ sshx scp host1:<src> host2:<dst>
 
 ```bash
 # Execute `ls -al` on host1
-sshx exec host1 ls -al
+sshx exec host1 -- ls -al
 # Execute an command with tty
-sshx exec host1 /bin/bash
+sshx exec host1 --tty -- /bin/bash
 # Execute an command on host1 via host2
-sshx exec -v host2 host1 ls -al
+sshx exec -v host2 host1 -- ls -al
 ```
+
+The arguments after `--` is the commandline to be executed remotely.
 
 
 ### Global Arguments
@@ -301,7 +307,7 @@ sshx --interval 1 --countmax 1 --retry 5 socks host1
 
 Create a ssh connection and set the ServerAlive options. The following options make the ssh client
 sends a keepalive probe to server after no data was transfered for 30s and after probing for 60
-times it would close the connection.
+times the connection would be closed.
 ```bash
 sshx --interval 30 --countmax 60 connect host1
 ```
