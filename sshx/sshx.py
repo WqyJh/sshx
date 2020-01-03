@@ -461,8 +461,8 @@ def cli(debug, interval, countmax, retry, retry_interval):
 
 
 @cli.command('init', help='initialize the account storage')
-@click.option('-f', '--force', type=click.BOOL,
-              help='delete previous existing files in {cfg.CONFIG_DIR} and re-init')
+@click.option('-f', '--force', is_flag=True,
+              help=f'delete previous existing files in {cfg.CONFIG_DIR} and re-init')
 def command_init(force):
     return handle_init(force=force)
 
@@ -473,16 +473,17 @@ def command_init(force):
 @click.option('-H', '--host', default=c.DEFAULT_HOST)
 @click.option('-P', '--port', default=c.DEFAULT_PORT)
 @click.option('-u', '--user', default=c.DEFAULT_USER)
-@click.option('-p', '--password', is_flag=True, default=True)
+@click.option('-p', '--password', is_flag=True)
 @click.option('-i', '--identity', default='', help='ssh identity file')
 @click.option('-v', '--via', default='', help='account name of jump host')
 def command_add(name, l, host, port, user, password, identity, via):
+    logger.info(f'name={name} password={password}')
     password = utils.read_password() if password else ''
     if l:
         user, host, port = parse_user_host_port(l)
 
-    return handle_add(name, host, port=port, user=user,
-                      password=password, identity=identity)
+    return handle_add(name, host, port=port, user=user, password=password,
+                      identity=identity, via=via)
 
 
 @cli.command('update', help='update an specified account')
@@ -496,22 +497,22 @@ def command_add(name, l, host, port, user, password, identity, via):
 @click.option('-v', '--via')
 def command_update(name, rename, host, port, user, password, identity, via):
     d = {}
-    if rename:
+    if rename is not None:
         d['name'] = rename
-    if host:
+    if host is not None:
         d['host'] = host
-    if port:
+    if port is not None:
         d['port'] = port
-    if user:
+    if user is not None:
         d['user'] = user
     if password:
         d['password'] = utils.read_password()
-    if identity:
+    if identity is not None:
         d['identity'] = identity
-    if via:
+    if via is not None:
         d['via'] = via
 
-    return handle_update(name, d)
+    return handle_update(name, update_fields=d)
 
 
 @cli.command('del', help='delete an account')
@@ -589,6 +590,7 @@ def process_result(result, debug, interval, countmax, retry, retry_interval):
 
 
 def invoke(argv):
+    return cli(argv, standalone_mode=False)
     args = parser.parse_args(argv)
 
     msg = None
@@ -660,9 +662,8 @@ def invoke(argv):
 
 
 def main():
-    invoke(sys.argv[1:])
+    cli(args=sys.argv[1:])
 
 
 if __name__ == '__main__':
-    # main()
-    cli()
+    main()
