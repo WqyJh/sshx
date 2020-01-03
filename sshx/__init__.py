@@ -1,4 +1,4 @@
-__version__ = '0.21.9'
+__version__ = '0.23.0'
 
 __all__ = ['sshx']
 
@@ -8,7 +8,7 @@ logger = logging.getLogger()
 
 
 def set_debug(debug):
-    global logger
+    # global logger
     level = logging.DEBUG if debug else logging.INFO
     logger.setLevel(level)
 
