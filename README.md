@@ -322,7 +322,6 @@ python setup.py test
 ## Changelog
 
 ```bash
-npm install -g auto-changelog
+pip install auto-changelog # npm install -g auto-changelog
 auto-changelog --latest-version <version>
 ```
-
