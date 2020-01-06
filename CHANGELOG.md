@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.23.1 (2020-01-06)
+
+#### Fixes
+
+* fix password echo when network is bad
+
 ## 0.23.0 (2020-01-03)
 
 #### New Features
@@ -16,9 +22,11 @@
 * remove redundant code
 #### Docs
 
+* update CHANGELOG.md
 * update help
 #### Others
 
+* remove osx & fix pipenv python version
 * remove legacy .travis/
 
 ## 0.21.9 (2019-11-26)
