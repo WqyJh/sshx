@@ -77,7 +77,7 @@ def read_config():
             if config.is_valid():
                 return config
     except Exception as e:
-        logger.critical(e)
+        logger.debug(e)
     return None
 
 

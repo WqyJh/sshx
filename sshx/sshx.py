@@ -5,26 +5,15 @@ import time
 import click
 
 from collections import OrderedDict
-from sshx import logger
-from sshx import set_debug
 
-from . import __version__
+from . import __version__, logger, set_debug
 from . import cfg
 from . import utils
 from . import sshwrap
 from . import const as c
 from .sshx_forward import Forwards
 from .sshx_scp import TargetPair
-
-MSG_CONFIG_BROKEN = {
-    'status': 'fail',
-    'msg': 'Fatal, configuration file was broken!',
-}
-
-MSG_CONFIG_NOT_FOUND = {
-    'status': 'fail',
-    'msg': 'Account not found!',
-}
+from .const import STATUS_SUCCESS, STATUS_FAIL
 
 
 RETRY = 0
@@ -46,127 +35,101 @@ def perform_init():
 
 def handle_init(force=False):
     check = cfg.check_init()
-    msg = {
-        'status': 'unknown',
-        'msg': '',
-    }
 
     if check == cfg.STATUS_UNINIT:
         perform_init()
-        msg = {
-            'status': 'success',
-            'msg': 'Initialized.',
-        }
+        logger.info('Initialized.')
+        return STATUS_SUCCESS
     elif check == cfg.STATUS_INITED:
         if force:
             cfg.remove_all_config()
             perform_init()
-            msg = {
-                'status': 'success',
-                'msg': 'Force initialized.',
-            }
+            logger.info('Force initialized.')
+            return STATUS_SUCCESS
         else:
-            msg = {
-                'status': 'fail',
-                'msg': "Already initialized. If you want to reinit it, please add --force option. Attention: it will delete all existing config files.",
-            }
+            logger.error("Already initialized. If you want to reinit it, please add --force option. Attention: it will delete all existing config files.")
+            return STATUS_FAIL
     elif check == cfg.STATUS_BROKEN:
         cfg.remove_all_config()
         perform_init()
-        msg = {
-            'status': 'success',
-            'msg': 'Re-initialized.',
-        }
-    return msg
+        logger.info('Re-initialized.')
+        return STATUS_SUCCESS
 
 
 def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password='', identity='', via=''):
     if via == name:
-        return {
-            'status': 'fail',
-            'msg': 'Cannot connect via itself.'
-        }
+        logger.error(c.MSG_CONNECT_VIA_SELF)
+        return STATUS_FAIL
 
     if via and not cfg.read_account(via):
-        return {
-            'status': 'fail',
-            'msg': "Account '%s' doesn't exist." % via,
-        }
+        logger.error(f"Account '{via}' doesn't exist.")
+        return STATUS_FAIL
 
     if cfg.write_account(cfg.Account(
         name=name, host=host, port=port, via=via,
         user=user, password=password, identity=identity,
     )):
-        return {
-            'status': 'success',
-            'msg': 'Account added.',
-        }
+        logger.info('Account added.')
+        return STATUS_SUCCESS
     else:
-        return {
-            'status': 'fail',
-            'msg': 'Account exists!',
-        }
+        logger.error('Account exists!')
+        return STATUS_FAIL
 
 
 def handle_update(name, update_fields):
     if not update_fields:
-        return {
-            'status': 'fail',
-            'msg': 'Nothing updated.'
-        }
+        logger.error('Nothing to update')
+        return STATUS_FAIL
 
     account = cfg.read_account(name)
     if not account:
-        return MSG_CONFIG_NOT_FOUND
+        logger.error(c.MSG_ACCOUNT_NOT_FOUND)
+        return STATUS_FAIL
 
     if 'via' in update_fields:
         via = update_fields['via']
         if via == name:
-            return {
-                'status': 'fail',
-                'msg': 'Cannot connect via itself.'
-            }
+            logger.error(c.MSG_CONNECT_VIA_SELF)
+            return STATUS_FAIL
 
         if not cfg.read_account(via):
-            return {
-                'status': 'fail',
-                'msg': "Account '%s' doesn't exist." % via,
-            }
+            logger.error(f"Jump account '{via}' doesn't exist.")
+            return STATUS_FAIL
 
     if 'name' in update_fields and update_fields['name'] != account.name:
         handle_del(name)
 
     account.update(update_fields)
     if cfg.write_account(account):
-        return {
-            'status': 'success',
-            'msg': 'Account updated.',
-        }
+        logger.info('Account updated.')
+        return STATUS_SUCCESS
     else:
-        return MSG_CONFIG_BROKEN
+        logger.error(c.MSG_CONFIG_BROKEN)
+        return STATUS_FAIL
 
 
 def handle_del(name):
     config = cfg.read_config()
     if not config:
-        return MSG_CONFIG_BROKEN
+        logger.error(c.MSG_CONFIG_BROKEN)
+        return STATUS_FAIL
 
     account = cfg.find_by_name(config.accounts, name)
-    if account:
-        config.accounts.remove(account)
-        cfg.write_config(config)
-        return {
-            'status': 'success',
-            'msg': 'Account deleted.',
-        }
-    else:
-        return MSG_CONFIG_NOT_FOUND
+    if not account:
+        logger.error(c.MSG_ACCOUNT_NOT_FOUND)
+        return STATUS_FAIL
+
+    config.accounts.remove(account)
+    cfg.write_config(config)
+    logger.info('Acccount deleted.')
+    return STATUS_SUCCESS
 
 
 def handle_list(key='name', reverse=False):
     config = cfg.read_config()
     if not config:
-        return MSG_CONFIG_BROKEN
+        logger.error(c.MSG_CONFIG_BROKEN)
+        return STATUS_FAIL
 
     print('%-20s%-30s%-20s%-20s' % ('name', 'host', 'user', 'via'))
     print('%-20s%-30s%-20s%-20s' % ('-----', '-----', '-----', '-----'))
@@ -174,35 +137,36 @@ def handle_list(key='name', reverse=False):
         getattr(a, key)), reverse=reverse)
     for a in config.accounts:
         print('%-20s%-30s%-20s%-20s' % (a.name, a.host, a.user, a.via))
+    return STATUS_SUCCESS
 
 
 def handle_show(name, password=False):
     account = cfg.read_account(name)
     if not account:
-        return {
-            'status': 'fail',
-            'msg': 'No account found named by "%s", please check the input.' % name,
-        }
+        logger.error(c.MSG_ACCOUNT_NOT_FOUND)
+        return STATUS_FAIL
 
     if not password:
         del account.password
 
     print(account)
+    return STATUS_SUCCESS
 
 
 def handle_connect(name, via='', forwards=None, interact=True, background=False, extras='', exec=''):
     account = cfg.read_account(name)
     if not account:
-        return {
-            'status': 'fail',
-            'msg': 'No account found named by "%s", please check the input.' % name,
-        }
+        logger.error(c.MSG_ACCOUNT_NOT_FOUND)
+        return STATUS_FAIL
 
     retry = RETRY
 
     while True:
-        msg = sshwrap.ssh(account, vias=via, forwards=forwards, interact=interact,
+        ret = sshwrap.ssh(account, vias=via, forwards=forwards, interact=interact,
                           background=background, extras=extras, exec=exec)
+        if ret == STATUS_SUCCESS:
+            break
+
         logger.debug(f'retry: {retry} retry_interval: {RETRY_INTERVAL}s')
 
         if retry == 0:
@@ -215,7 +179,7 @@ def handle_connect(name, via='', forwards=None, interact=True, background=False,
             time.sleep(RETRY_INTERVAL)
             continue
 
-    return msg
+    return STATUS_SUCCESS
 
 
 def handle_forward(name, maps=None, rmaps=None, via='', background=False):
@@ -227,7 +191,7 @@ def handle_forward(name, maps=None, rmaps=None, via='', background=False):
 def handle_socks(name, via='', port=1080, background=False):
     # -D 1080           dynamic forwarding
     # -fNT -D 1080      ssh socks
-    extras = '-D {port}'.format(port=port)
+    extras = f'-D {port}'
     return handle_connect(name, via=via, interact=False, background=background,  extras=extras)
 
 
@@ -241,24 +205,18 @@ def handle_scp(src, dst, via=''):
     targets = TargetPair(src, dst)
 
     if targets.both_are_remote():
-        # TODO
-        return {
-            'status': 'fail',
-            'msg': 'Copy between remote targets are not supported yet.',
-        }
+        # TODO: implement copy between remote targets
+        logger.error('Copy between remote targets are not supported yet.')
+        return STATUS_FAIL
 
     name = targets.src.host or targets.dst.host
     account = cfg.read_account(name)
 
     if not account:
-        return {
-            'status': 'fail',
-            'msg': 'Account <%s> not found.' % name,
-        }
+        logger.error('Account not found')
+        return STATUS_FAIL
 
-    msg = sshwrap.scp(account, targets, vias=via)
-
-    return msg
+    return sshwrap.scp(account, targets, vias=via)
 
 
 def parse_user_host_port(s):
@@ -454,8 +412,8 @@ def command_exec(name, cmd, via, tty):
 
 @cli.resultcallback()
 def process_result(result, debug, interval, countmax, retry, retry_interval):
-    if result:
-        logger.info('[%s]: %s' % (result['status'], result['msg']))
+    '''The result is used as the exit status code.'''
+    return result
 
 
 def invoke(argv):
@@ -463,8 +421,8 @@ def invoke(argv):
 
 
 def main():
-    cli(args=sys.argv[1:])
+    return cli(args=sys.argv[1:], standalone_mode=False)
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
