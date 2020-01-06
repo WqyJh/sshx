@@ -3,10 +3,11 @@ import mock
 import shutil
 import unittest
 
-from sshx import cfg
-from sshx import sshx
-from sshx import utils
-from sshx import const as c
+from .. import cfg
+from .. import sshx
+from .. import utils
+from .. import const as c
+from ..const import STATUS_SUCCESS, STATUS_FAIL
 
 
 class CfgTest(unittest.TestCase):
@@ -107,34 +108,34 @@ class FunctionalTest(unittest.TestCase):
     def test_init(self):
         self.assertEqual(cfg.STATUS_UNINIT, cfg.check_init())
 
-        msg = sshx.handle_init(force=False)
-        self.assertEqual('success', msg['status'])
+        ret = sshx.handle_init(force=False)
+        self.assertEqual(STATUS_SUCCESS, ret)
         config = cfg.read_config()
         self.assertTrue(utils.is_str(config.phrase))
         self.assertEqual(0, len(config.accounts))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
-        msg = sshx.handle_init(force=False)
-        self.assertEqual('fail', msg['status'])
+        ret = sshx.handle_init(force=False)
+        self.assertEqual(STATUS_FAIL, ret)
         config = cfg.read_config()
         self.assertTrue(utils.is_str(config.phrase))
         self.assertEqual(0, len(config.accounts))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
         phrase1 = config.phrase
-        msg = sshx.handle_init(force=True)
-        self.assertEqual('success', msg['status'])
+        ret = sshx.handle_init(force=True)
+        self.assertEqual(STATUS_SUCCESS, ret)
         config = cfg.read_config()
         self.assertNotEqual(phrase1, config.phrase)
         self.assertEqual(0, len(config.accounts))
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
     def test_add(self):
-        msg = sshx.handle_init()
+        ret = sshx.handle_init()
 
-        msg = sshx.handle_add(NAME1, HOST1, port=PORT1,
+        ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])
+        self.assertEqual(STATUS_SUCCESS, ret)
         self.assertEqual(1, cfg.accounts_num())
         acc = cfg.read_account(NAME1)
         self.assertEqual(HOST1, acc.host)
@@ -143,57 +144,57 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual(PASSWORD1, acc.password)
         self.assertEqual(IDENTITY1, acc.identity)
 
-        msg = sshx.handle_add(NAME2, HOST1, port=PORT1,
+        ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])
+        self.assertEqual(STATUS_SUCCESS, ret)
         self.assertEqual(2, cfg.accounts_num())
 
     def test_add_via(self):
-        msg = sshx.handle_init()
+        ret = sshx.handle_init()
 
-        msg = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME1,
+        ret = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('fail', msg['status'])
+        self.assertEqual(STATUS_FAIL, ret)
 
-        msg = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME2,
+        ret = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME2,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('fail', msg['status'])
+        self.assertEqual(STATUS_FAIL, ret)
 
-        msg = sshx.handle_add(NAME1, HOST1, port=PORT1,
+        ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])
-        msg = sshx.handle_add(NAME2, HOST1, port=PORT1, via=NAME1,
+        self.assertEqual(STATUS_SUCCESS, ret)
+        ret = sshx.handle_add(NAME2, HOST1, port=PORT1, via=NAME1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])
+        self.assertEqual(STATUS_SUCCESS, ret)
 
 
     def test_update(self):
-        msg = sshx.handle_init()
-        self.assertEqual('success', msg['status'])
-        msg = sshx.handle_add(NAME1, HOST1, port=PORT1,
+        ret = sshx.handle_init()
+        self.assertEqual(STATUS_SUCCESS, ret)
+        ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])
+        self.assertEqual(STATUS_SUCCESS, ret)
 
-        msg = sshx.handle_update(NAME1, update_fields={
+        ret = sshx.handle_update(NAME1, update_fields={
             'identity': IDENTITY2,
             'password': PASSWORD2,
         })
-        self.assertEqual('success', msg['status'])
+        self.assertEqual(STATUS_SUCCESS, ret)
         self.assertEqual(1, cfg.accounts_num())
         account = cfg.read_account(NAME1)
         self.assertEqual(IDENTITY2, account.identity)
         self.assertEqual(PASSWORD2, account.password)
 
-        msg = sshx.handle_update(NAME2, update_fields={
+        ret = sshx.handle_update(NAME2, update_fields={
             'identity': IDENTITY2,
         })
-        self.assertEqual('fail', msg['status'])
+        self.assertEqual(STATUS_FAIL, ret)
         self.assertEqual(1, cfg.accounts_num())
 
-        msg = sshx.handle_update(NAME1, update_fields={
+        ret = sshx.handle_update(NAME1, update_fields={
             'name': NAME2,
         })
-        self.assertEqual('success', msg['status'])
+        self.assertEqual(STATUS_SUCCESS, ret)
         self.assertEqual(1, cfg.accounts_num())
         account = cfg.read_account(NAME1)
         self.assertIsNone(account)
@@ -201,14 +202,14 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual(IDENTITY2, account.identity)
 
     def test_del(self):
-        msg = sshx.handle_init()
-        self.assertEqual('success', msg['status'])
-        msg = sshx.handle_add(NAME1, HOST1, port=PORT1,
+        ret = sshx.handle_init()
+        self.assertEqual(STATUS_SUCCESS, ret)
+        ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])
-        msg = sshx.handle_add(NAME2, HOST1, port=PORT1,
+        self.assertEqual(STATUS_SUCCESS, ret)
+        ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])
+        self.assertEqual(STATUS_SUCCESS, ret)
 
         config = cfg.read_config()
         self.assertEqual(2, len(config.accounts))
@@ -224,14 +225,14 @@ class FunctionalTest(unittest.TestCase):
         self.assertIsNone(cfg.find_by_name(config.accounts, NAME2))
 
     def test_connect(self):
-        msg = sshx.handle_init()
-        self.assertEqual('success', msg['status'])
-        msg = sshx.handle_add(NAME1, HOST1, port=PORT1,
+        ret = sshx.handle_init()
+        self.assertEqual(STATUS_SUCCESS, ret)
+        ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual('success', msg['status'])
-        msg = sshx.handle_add(NAME2, HOST1, port=PORT1,
+        self.assertEqual(STATUS_SUCCESS, ret)
+        ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY2)
-        self.assertEqual('success', msg['status'])
+        self.assertEqual(STATUS_SUCCESS, ret)
 
         with mock.patch('sshx.sshwrap.ssh') as m:
             sshx.handle_connect(NAME1)

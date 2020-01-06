@@ -8,42 +8,18 @@ import threading
 import subprocess
 import paramiko
 
-from sshx import logger
 
-from . import utils
+from . import const as c
+from . import utils, logger
 from .cfg import read_account
 from .sshx_forward import Forwards
+from .const import STATUS_SUCCESS, STATUS_FAIL
 
 
 LOCALHOST = '127.0.0.1'
 
 ServerAliveInterval = 0
 ServerAliveCountMax = 3
-
-
-def _connect(f, use_password):
-    exception = None
-
-    try:
-        f()
-    except Exception as e:
-        exception = e
-
-    if exception is None:
-        return {
-            'status': 'success',
-        }
-
-    if isinstance(exception, paramiko.AuthenticationException):
-        return {
-            'status': 'fail',
-            'msg': 'Authentication failed, invalid %s!' % 'password' if use_password else 'identity file',
-        }
-    else:
-        return {
-            'status': 'fail',
-            'msg': 'Connection Error',
-        }
 
 
 def set_winsize(p):
@@ -161,31 +137,38 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
         # Passwords for jump hosts
         if passwords:
             for password in passwords:
-                p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+                r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+                if r == 0:
+                    logger.error(c.MSG_CONNECTION_TIMED_OUT)
+                    return STATUS_FAIL
                 p.sendline(password)
 
         # Password for dest host
         if not account.identity:
-            p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            if r == 0:
+                logger.error(c.MSG_CONNECTION_TIMED_OUT)
+                return STATUS_FAIL
             p.sendline(account.password)
 
         set_winsize(p)  # Adjust window size
         # Set auto-adjust window size
         signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
-        p.expect([pexpect.TIMEOUT, '\S'])
-        p.write_to_stdout(p.after)
-        # p.expect([pexpect.TIMEOUT, '[$|#]'])
-        # p.sendline('')
+        r = p.expect([pexpect.TIMEOUT, '\S'])
+        if r == 0:
+            logger.error(c.MSG_CONNECTION_TIMED_OUT)
+            return STATUS_FAIL
 
+        p.write_to_stdout(p.after)
         p.interact()
 
     except Exception as e:
+        logger.error(c.MSG_CONNECTION_ERROR)
         logger.debug(e)
-        return {
-            'status': 'fail',
-            'msg': 'Connection failed',
-        }
+        return STATUS_FAIL
+    finally:
+        p.close()
 
 
 def scp_pexpect(account, targets):
@@ -214,27 +197,34 @@ def scp_pexpect(account, targets):
         # Passwords for jump hosts
         if passwords:
             for password in passwords:
-                p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+                r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+                if r == 0:
+                    logger.error(c.MSG_CONNECTION_TIMED_OUT)
+                    return STATUS_FAIL
                 p.sendline(password)
 
         # Password for dest host
         if not account.identity:
-            p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            if r == 0:
+                logger.error(c.MSG_CONNECTION_TIMED_OUT)
+                return STATUS_FAIL
             p.sendline(account.password)
 
         set_winsize(p)  # Adjust window size
         # Set auto-adjust window size
         signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
-        p.expect([pexpect.TIMEOUT, '\S'])
+        r = p.expect([pexpect.TIMEOUT, '\S'])
+        if r == 0:
+            logger.error(c.MSG_CONNECTION_TIMED_OUT)
+            return STATUS_FAIL
         p.write_to_stdout(p.after)
         p.interact()
     except Exception as e:
+        logger.error(c.MSG_CONNECTION_ERROR)
         logger.debug(e)
-        return {
-            'status': 'fail',
-            'msg': 'Connection failed',
-        }
+        return STATUS_FAIL
 
 
 def find_available_port():
@@ -261,7 +251,7 @@ def scp_pexpect2(account, targets, jumps):
     # Establish port forwarding
     vias = ','.join([a.name for a in reversed(jumps)])
     ret = ssh_pexpect2(jump1, vias=vias, forwards=forwards, interact=False)
-    if ret['status'] == 'fail':
+    if ret == STATUS_FAIL:
         return ret
 
     forwarding = ret['p']
@@ -287,22 +277,26 @@ def scp_pexpect2(account, targets, jumps):
 
         # Password for dest host
         if not account.identity:
-            p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            if r == 0:
+                logger.error(c.MSG_CONNECTION_TIMED_OUT)
+                return STATUS_FAIL
             p.sendline(account.password)
 
         set_winsize(p)  # Adjust window size
         # Set auto-adjust window size
         signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
-        p.expect([pexpect.TIMEOUT, '\S'])
+        r = p.expect([pexpect.TIMEOUT, '\S'])
+        if r == 0:
+            logger.error(c.MSG_CONNECTION_TIMED_OUT)
+            return STATUS_FAIL
         p.write_to_stdout(p.after)
         p.interact()
     except Exception as e:
+        logger.error(c.MSG_CONNECTION_ERROR)
         logger.debug(e)
-        return {
-            'status': 'fail',
-            'msg': 'Connection failed',
-        }
+        return STATUS_FAIL
 
 
 def has_command(command):
