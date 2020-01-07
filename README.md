@@ -19,7 +19,7 @@ sshx is a lightweight wrapper for ssh/scp command, which has the following featu
 
 Supported platform: Python 3 on **Linux**, **macOS**, **WSL/cygwin/msys2 on Windows)**.
 
-**Attention: **
+**Attention:**
 - Native Windows support was removed.
 - Python 2 support was removed.
 

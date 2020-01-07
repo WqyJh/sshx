@@ -49,11 +49,14 @@ class Config(object):
 
         __init__() and __dict__ are reciprocal.
         '''
-        self.phrase = config_dict.get('phrase', '')
-        self.accounts = [Account(**a) for a in config_dict.get('accounts', None)]
+        self.security = config_dict.get('security', False)
+        self.phrase = config_dict.get('phrase', None)
+        self.accounts = [Account(**a)
+                         for a in config_dict.get('accounts', None)]
 
     def is_valid(self):
-        b = utils.is_str(self.phrase) and isinstance(self.accounts, list) and all(map(Account.is_valid, self.accounts))
+        b = utils.is_str(self.phrase) and isinstance(
+            self.accounts, list) and all(map(Account.is_valid, self.accounts))
         return b
 
     def __str__(self):
@@ -66,6 +69,23 @@ class Config(object):
 def create_config_file():
     io.open(ACCOUNT_FILE, 'a', encoding='utf-8').close()
     os.chmod(ACCOUNT_FILE, stat.S_IRUSR | stat.S_IWUSR)
+
+
+_cached_passphrase = None
+
+
+def verify_passphrase(config):
+    '''Must be called before write_config'''
+    if config.security:
+        global _cached_passphrase
+        if not _cached_passphrase:
+            phrase = utils.read_passphrase()
+            if config.phrase != tokenizer.hash(phrase):
+                return False
+            _cached_passphrase = phrase
+
+        config.phrase = _cached_passphrase
+    return True
 
 
 def read_config():
@@ -83,6 +103,8 @@ def read_config():
 
 def write_config(config):
     with io.open(ACCOUNT_FILE, 'w', encoding='utf-8') as configfile:
+        if config.security:
+            config.phrase = tokenizer.hash(config.phrase)
         s = utils.json_dump(config.__dict__)
         configfile.write(s)
 
@@ -104,21 +126,38 @@ def remove_all_config():
     shutil.rmtree(CONFIG_DIR)
 
 
-def read_account(name):
+def read_account(name, decrypt=True):
     config = read_config()
     if config:
         account = find_by_name(config.accounts, name)
         if account:
+            if decrypt:
+                if verify_passphrase(config):
+                    account.password = tokenizer.decrypt(
+                        account.password, config.phrase)
+        return account
+
+
+def decrypt_accounts(config):
+    if verify_passphrase(config):
+        for account in config.accounts:
             account.password = tokenizer.decrypt(
                 account.password, config.phrase)
-            return account
+
+
+def read_accounts(decrypt=True):
+    config = read_config()
+    if config:
+        if decrypt:
+            decrypt_accounts(config)
+        return config.accounts
+    return []
 
 
 def write_account(account):
     config = read_config()
     if config:
-        account.password = tokenizer.encrypt(
-            account.password, config.phrase)
+        account.password = tokenizer.encrypt(account.password, config.phrase)
         add_or_update(config.accounts, account)
         write_config(config)
         return True

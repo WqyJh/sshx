@@ -20,40 +20,68 @@ RETRY = 0
 RETRY_INTERVAL = 0
 
 
-def perform_init():
+def perform_init(security=False):
     os.makedirs(cfg.CONFIG_DIR, mode=0o700, exist_ok=True)
     cfg.create_config_file()
 
-    phrase = utils.random_str(32)
+    phrase = utils.read_passphrase() if security else utils.random_str(32)
 
     config = cfg.Config({
+        'security': security,
         'phrase': phrase,
         'accounts': [],
     })
+
     cfg.write_config(config)
 
 
-def handle_init(force=False):
+def handle_init(force=False, security=False):
     check = cfg.check_init()
 
     if check == cfg.STATUS_UNINIT:
-        perform_init()
+        perform_init(security=security)
         logger.info('Initialized.')
         return STATUS_SUCCESS
     elif check == cfg.STATUS_INITED:
         if force:
             cfg.remove_all_config()
-            perform_init()
+            perform_init(security=security)
             logger.info('Force initialized.')
             return STATUS_SUCCESS
         else:
-            logger.error("Already initialized. If you want to reinit it, please add --force option. Attention: it will delete all existing config files.")
+            logger.error(
+                "Already initialized. If you want to reinit it, please add --force option. Attention: it will delete all existing config files.")
             return STATUS_FAIL
     elif check == cfg.STATUS_BROKEN:
         cfg.remove_all_config()
-        perform_init()
+        perform_init(security=security)
         logger.info('Re-initialized.')
         return STATUS_SUCCESS
+
+
+def handle_config(security=None, chphrase=False):
+    config = cfg.read_config()
+
+    if security is not None:
+        if security:
+            if config.security:
+                logger.error('Already in security mode.')
+                return STATUS_FAIL
+            config.security = True
+            chphrase = True
+        else:
+            if not config.security:
+                logger.error('Not in security mode.')
+            config.security = False
+            chphrase = True
+
+    if chphrase:
+        cfg.decrypt_accounts(config)
+        config.phrase = utils.read_passphrase() if config.security else utils.random_str(32)
+        cfg.write_config(config)
+        return STATUS_SUCCESS
+
+    return STATUS_FAIL
 
 
 def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password='', identity='', via=''):
@@ -62,7 +90,7 @@ def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password=''
         return STATUS_FAIL
 
     if via and not cfg.read_account(via):
-        logger.error(f"Account '{via}' doesn't exist.")
+        logger.error(f"Jump account '{via}' doesn't exist.")
         return STATUS_FAIL
 
     if cfg.write_account(cfg.Account(
@@ -81,7 +109,9 @@ def handle_update(name, update_fields):
         logger.error('Nothing to update')
         return STATUS_FAIL
 
-    account = cfg.read_account(name)
+    decrypt = True if 'password' in update_fields else False
+
+    account = cfg.read_account(name, decrypt=decrypt)
     if not account:
         logger.error(c.MSG_ACCOUNT_NOT_FOUND)
         return STATUS_FAIL
@@ -92,7 +122,7 @@ def handle_update(name, update_fields):
             logger.error(c.MSG_CONNECT_VIA_SELF)
             return STATUS_FAIL
 
-        if not cfg.read_account(via):
+        if not cfg.read_account(via, decrypt=decrypt):
             logger.error(f"Jump account '{via}' doesn't exist.")
             return STATUS_FAIL
 
@@ -126,22 +156,18 @@ def handle_del(name):
 
 
 def handle_list(key='name', reverse=False):
-    config = cfg.read_config()
-    if not config:
-        logger.error(c.MSG_CONFIG_BROKEN)
-        return STATUS_FAIL
+    accounts = cfg.read_accounts(decrypt=False)
 
     print('%-20s%-30s%-20s%-20s' % ('name', 'host', 'user', 'via'))
     print('%-20s%-30s%-20s%-20s' % ('-----', '-----', '-----', '-----'))
-    config.accounts.sort(key=lambda a: str.lower(
-        getattr(a, key)), reverse=reverse)
-    for a in config.accounts:
+    accounts.sort(key=lambda a: str.lower(getattr(a, key)), reverse=reverse)
+    for a in accounts:
         print('%-20s%-30s%-20s%-20s' % (a.name, a.host, a.user, a.via))
     return STATUS_SUCCESS
 
 
 def handle_show(name, password=False):
-    account = cfg.read_account(name)
+    account = cfg.read_account(name, decrypt=password)
     if not account:
         logger.error(c.MSG_ACCOUNT_NOT_FOUND)
         return STATUS_FAIL
@@ -256,6 +282,7 @@ RETRY_TYPE = RetryType()
 
 class SortedGroup(click.Group):
     '''Thanks to https://github.com/pallets/click/issues/513#issuecomment-301046782.'''
+
     def __init__(self, name=None, commands=None, **attrs):
         if commands is None:
             commands = OrderedDict()
@@ -292,8 +319,17 @@ def cli(debug, interval, countmax, retry, retry_interval):
 @cli.command('init', help='Initialize the account storage.')
 @click.option('-f', '--force', is_flag=True,
               help=f'Delete previous existing files in {cfg.CONFIG_DIR} and re-init.')
-def command_init(force):
-    return handle_init(force=force)
+@click.option('--security', is_flag=True, help='Enable security mode.')
+def command_init(force, security):
+    return handle_init(force=force, security=security)
+
+
+@cli.command('config', help='Security configuration.')
+@click.option('--security-on', 'security', flag_value=True, default=None, help='Enable security mode.')
+@click.option('--security-off', 'security', flag_value=False, default=None, help='Disable security mode.')
+@click.option('--chphrase', is_flag=True, help='Change the passphrase.')
+def command_config(security, chphrase):
+    return handle_config(security=security, chphrase=chphrase)
 
 
 @cli.command('add', help='Add an account and assign a name for it.')
@@ -381,7 +417,10 @@ def command_connect(name, via):
 @click.option('-b', '--background', is_flag=True,
               help='Run in background.')
 def command_forward(name, via, forward, rforward, background):
-    return handle_forward(name, via=via, maps=forward, rmaps=rforward, background=background)
+    if forward or rforward:
+        return handle_forward(name, via=via, maps=forward, rmaps=rforward, background=background)
+    logger.error('Either -f or -rf option must be specified.')
+    return STATUS_FAIL
 
 
 @cli.command('socks', help='Establish a socks5 server using ssh.')
@@ -417,11 +456,11 @@ def process_result(result, debug, interval, countmax, retry, retry_interval):
 
 
 def invoke(argv):
-    return cli(argv, standalone_mode=False)
+    return cli(args=argv, standalone_mode=False)
 
 
 def main():
-    return cli(args=sys.argv[1:], standalone_mode=False)
+    return invoke(sys.argv[1:])
 
 
 if __name__ == '__main__':

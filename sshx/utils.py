@@ -6,6 +6,8 @@ import random
 
 from getpass import getpass
 
+from . import tokenizer
+
 
 class ClsDictEncoder(json.JSONEncoder):
     def default(self, o):
@@ -28,6 +30,10 @@ def json_load(s):
     return json.loads(s)
 
 
-def read_password():
+def read_password(prompt='Password:'):
     '''Read password from PTY'''
-    return getpass()
+    return getpass(prompt=prompt)
+
+
+def read_passphrase():
+    return read_password(prompt='Passphrase:')
