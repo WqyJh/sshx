@@ -252,12 +252,3 @@ def get_config():
 
 
 config = lazy.Proxy(get_config)
-
-
-def _reset():
-    '''
-    Reset the module status.
-    Only for unittests.
-    '''
-    global config
-    config = lazy.Proxy(get_config)

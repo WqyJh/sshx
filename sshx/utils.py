@@ -53,3 +53,8 @@ def parse_user_host_port(s):
         host, port = splited[0], c.DEFAULT_PORT
 
     return user, host, port
+
+
+def format_command(s):
+    '''Remove duplicate spaces in s and remove the leading and tailing spaces.'''
+    return ' '.join(s.split())

@@ -1,6 +1,6 @@
 class Forward(object):
     def __init__(self, maps, local_forward):
-        if isinstance(maps, list):
+        if isinstance(maps, (list, tuple)):
             self.maps = maps
         elif isinstance(maps, str):
             self.maps = [maps]
@@ -26,4 +26,4 @@ class Forwards(object):
     def compile(self):
         forward = self.forward.compile() if self.forward else ''
         rforward = self.rforward.compile() if self.rforward else ''
-        return '%s %s' % (forward, rforward)
+        return f'{forward} {rforward}'.strip()

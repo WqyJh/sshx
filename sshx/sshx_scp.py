@@ -4,9 +4,6 @@ from . import cfg
 _SCP_TARGET = '{user}@{host}:{path}'
 
 
-config = cfg.config
-
-
 class Target(object):
     def __init__(self, target):
         r = target.split(':')
@@ -28,16 +25,16 @@ class Target(object):
             return self.path
 
         if self.host:
-            account = config.get_account(self.host)
+            account = cfg.config.get_account(self.host)
             if account:
                 if not host:
                     host = account.host
-                return _SCP_TARGET.format(user=account.user,
-                                          host=host,
-                                          path=self.path)
+                return _SCP_TARGET.format(
+                    user=account.user,
+                    host=host,
+                    path=self.path)
 
         return ''
-
 
     def __str__(self):
         return str(self.__dict__)
@@ -53,10 +50,9 @@ class TargetPair(object):
 
     def both_are_remote(self):
         return self.src.is_remote() and self.dst.is_remote()
-    
+
     def __str__(self):
         return str(self.__dict__)
 
     def __repr__(self):
         return self.__str__()
-

@@ -46,31 +46,30 @@ _SSH_COMMAND_PASSWORD = 'ssh \
 -o PreferredAuthentications=password \
 -o StrictHostKeyChecking=no \
 -o UserKnownHostsFile=/dev/null \
-{extras} {jump} {forwards} {user}@{host} -p {port} {exec}'
-_SSH_COMMAND_IDENTITY = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} -i {identity} {exec}'
+{extras} {forwards} {jump} -p {port} {user}@{host} {exec}'
+_SSH_COMMAND_IDENTITY = 'ssh -i {identity} {extras} {forwards} {jump} -p {port} {user}@{host} {exec}'
 _SSH_DEST = '{user}@{host}:{port}'
 _SCP_COMMAND_PASSWORD = 'scp -r \
 -oPreferredAuthentications=password \
 -oStrictHostKeyChecking=no \
 -oUserKnownHostsFile=/dev/null \
--P {port} {jump} {src} {dst}'
-_SCP_COMMAND_IDENTITY = 'scp -r -P {port} {jump} {src} {dst} -i {identity}'
+{jump} -P {port} {src} {dst}'
+_SCP_COMMAND_IDENTITY = 'scp -r -i {identity} {jump} -P {port} {src} {dst}'
 
 
 def find_vias(vias):
+    '''Find accounts by vias.'''
     _vias = vias.split(',')
-    config = cfg.read_config()
-    return [config.get_account(v, decrypt=True) for v in _vias]
+    return [cfg.config.get_account(v, decrypt=True) for v in _vias]
 
 
 def find_jumps(account):
+    '''Find accounts by account.via.'''
     jumps = []
-    config = cfg.read_config()
-
-    a = config.get_account(account.via)
+    a = cfg.config.get_account(account.via, decrypt=True)
     while a:
         jumps.append(a)
-        a = config.get_account(a.via)
+        a = cfg.config.get_account(a.via, decrypt=True)
     return jumps
 
 
@@ -78,7 +77,7 @@ def compile_jumps(account, vias=None, prefix='-J '):
     jumps = find_vias(vias) if vias else find_jumps(account)
 
     if jumps:
-        accounts = list(reversed(jumps))
+        accounts = list(jumps)
         dests = [_SSH_DEST.format(
             user=a.user, host=a.host, port=a.port) for a in accounts]
         jump = prefix + ','.join(dests)
@@ -95,7 +94,14 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
     jump, passwords = compile_jumps(account, vias=vias)
 
     # interactive/background/foreground config
-    if not interact:
+    # : interact=True background=False
+    # -f: interact=True background=True
+    # -fNT: interact=False background=True
+    # -NT: interact=False background=False
+    if interact:
+        if background:
+            extras += ' -f'
+    else:
         '''
         -f              background
         -N              do not execute remote command
@@ -113,23 +119,28 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
 
     # compile command
     if account.identity:
-        command = _SSH_COMMAND_IDENTITY.format(jump=jump,
-                                               forwards=_forwards,
-                                               user=account.user,
-                                               host=account.host,
-                                               port=account.port, identity=account.identity,
-                                               extras=extras,
-                                               exec=exec)
+        command = _SSH_COMMAND_IDENTITY.format(
+            jump=jump,
+            forwards=_forwards,
+            user=account.user,
+            host=account.host,
+            port=account.port,
+            identity=account.identity,
+            extras=extras,
+            exec=exec)
     else:
-        command = _SSH_COMMAND_PASSWORD.format(jump=jump,
-                                               forwards=_forwards,
-                                               user=account.user,
-                                               host=account.host,
-                                               port=account.port,
-                                               extras=extras,
-                                               exec=exec)
+        command = _SSH_COMMAND_PASSWORD.format(
+            jump=jump,
+            forwards=_forwards,
+            user=account.user,
+            host=account.host,
+            port=account.port,
+            extras=extras,
+            exec=exec)
+    command = utils.format_command(command)
 
     # connect
+    p = None
     try:
         logger.debug(command)
 
@@ -152,44 +163,49 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
                 return STATUS_FAIL
             p.sendline(account.password)
 
-        set_winsize(p)  # Adjust window size
-        # Set auto-adjust window size
-        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
-
-        r = p.expect([pexpect.TIMEOUT, '\S'])
-        if r == 0:
-            logger.error(c.MSG_CONNECTION_TIMED_OUT)
-            return STATUS_FAIL
-
-        p.write_to_stdout(p.after)
-        p.interact()
-
+        if background:
+            p.interact(escape_character=None)
+        else:
+            set_winsize(p)  # Adjust window size
+            # Set auto-adjust window size
+            signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
+            r = p.expect([pexpect.TIMEOUT, '\S'])
+            if r == 0:
+                logger.error(c.MSG_CONNECTION_TIMED_OUT)
+                return STATUS_FAIL
+            p.write_to_stdout(p.after)
+            p.interact(escape_character=None)
+        logger.debug(f'exit status code: {p.status}')
+        return STATUS_SUCCESS
     except Exception as e:
         logger.error(c.MSG_CONNECTION_ERROR)
         logger.debug(e)
         return STATUS_FAIL
-    finally:
-        p.close()
 
 
-def scp_pexpect(account, targets):
+def scp_pexpect(account, targets, vias):
     import pexpect
 
-    jump, passwords = compile_jumps(account, prefix='-oProxyJump=')
+    jump, passwords = compile_jumps(account, vias=vias, prefix='-oProxyJump=')
 
     src, dst = targets.src.compile(), targets.dst.compile()
 
     if account.identity:
-        command = _SCP_COMMAND_IDENTITY.format(jump=jump,
-                                               port=account.port,
-                                               src=src,
-                                               dst=dst,
-                                               identity=account.identity)
+        command = _SCP_COMMAND_IDENTITY.format(
+            jump=jump,
+            port=account.port,
+            src=src,
+            dst=dst,
+            identity=account.identity)
     else:
-        command = _SCP_COMMAND_PASSWORD.format(jump=jump,
-                                               port=account.port,
-                                               src=src,
-                                               dst=dst)
+        command = _SCP_COMMAND_PASSWORD.format(
+            jump=jump,
+            port=account.port,
+            src=src,
+            dst=dst)
+    command = utils.format_command(command)
+
+    p = None
     try:
         logger.debug(command)
 
@@ -220,8 +236,10 @@ def scp_pexpect(account, targets):
         if r == 0:
             logger.error(c.MSG_CONNECTION_TIMED_OUT)
             return STATUS_FAIL
+
         p.write_to_stdout(p.after)
         p.interact()
+        return STATUS_SUCCESS
     except Exception as e:
         logger.error(c.MSG_CONNECTION_ERROR)
         logger.debug(e)
@@ -241,36 +259,47 @@ def find_available_port():
             return port
 
 
-def scp_pexpect2(account, targets, jumps):
+def scp_pexpect2(account, targets, vias):
     import pexpect
 
-    jump1 = jumps.pop(0)
-    port = find_available_port()
-    maps = '%s:%s:%s:%s' % (LOCALHOST, port, account.host, account.port)
-    forwards = Forwards(maps, '')
+    jumps = find_vias(vias) if vias else find_jumps(account)
 
-    # Establish port forwarding
-    vias = ','.join([a.name for a in reversed(jumps)])
-    ret = ssh_pexpect2(jump1, vias=vias, forwards=forwards, interact=False)
-    if ret == STATUS_FAIL:
-        return ret
+    port = account.port
+    host = account.host
 
-    forwarding = ret['p']
+    if jumps:
+        jump1 = jumps.pop()
+        host = LOCALHOST
+        port = find_available_port()
+        maps = '%s:%s:%s:%s' % (host, port, account.host, account.port)
+        forwards = Forwards(maps, '')
 
-    src, dst = targets.src.compile(host=LOCALHOST), \
-        targets.dst.compile(host=LOCALHOST)
+        # Establish port forwarding
+        vias = ','.join([a.name for a in jumps])
+        ret = ssh_pexpect2(jump1, vias=vias, forwards=forwards,
+                           interact=False, background=True)
+        if ret == STATUS_FAIL:
+            return STATUS_FAIL
+
+    src, dst = targets.src.compile(host=host), \
+        targets.dst.compile(host=host)
 
     if account.identity:
-        command = _SCP_COMMAND_IDENTITY.format(jump='',
-                                               port=port,
-                                               src=src,
-                                               dst=dst,
-                                               identity=account.identity)
+        command = _SCP_COMMAND_IDENTITY.format(
+            jump='',
+            port=port,
+            src=src,
+            dst=dst,
+            identity=account.identity)
     else:
-        command = _SCP_COMMAND_PASSWORD.format(jump='',
-                                               port=port,
-                                               src=src,
-                                               dst=dst)
+        command = _SCP_COMMAND_PASSWORD.format(
+            jump='',
+            port=port,
+            src=src,
+            dst=dst)
+    command = utils.format_command(command)
+
+    p = None
     try:
         logger.debug(command)
 
@@ -292,8 +321,10 @@ def scp_pexpect2(account, targets, jumps):
         if r == 0:
             logger.error(c.MSG_CONNECTION_TIMED_OUT)
             return STATUS_FAIL
+
         p.write_to_stdout(p.after)
         p.interact()
+        return STATUS_SUCCESS
     except Exception as e:
         logger.error(c.MSG_CONNECTION_ERROR)
         logger.debug(e)
@@ -318,9 +349,7 @@ def ssh(account, vias=None, forwards=None, extras='', interact=True, background=
                         interact=interact, background=background, exec=exec)
 
 
-def scp(account, targets, vias=None):
-    jumps = find_vias(vias) if vias else find_jumps(account)
-
-    if jumps:
-        return scp_pexpect2(account, targets, jumps)
-    return scp_pexpect(account, targets)
+def scp(account, targets, vias=None, with_forward=False):
+    if with_forward:
+        return scp_pexpect2(account, targets, vias)
+    return scp_pexpect(account, targets, vias)

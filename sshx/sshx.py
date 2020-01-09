@@ -4,8 +4,6 @@ import sys
 import time
 import click
 
-import lazy_object_proxy as lazy
-
 from collections import OrderedDict
 
 from . import __version__, logger, set_debug
@@ -20,19 +18,6 @@ from .const import STATUS_SUCCESS, STATUS_FAIL
 
 RETRY = 0
 RETRY_INTERVAL = 0
-
-
-config = cfg.config
-
-
-def _reset():
-    '''
-    Reset the module status.
-    Only for unittests.
-    '''
-    global config
-    cfg._reset()
-    config = cfg.config
 
 
 def handle_init(force=False, security=False):
@@ -60,6 +45,8 @@ def handle_init(force=False, security=False):
 
 
 def handle_config(security=None, chphrase=False):
+    config = cfg.config
+
     if security is not None:
         config.set_security(security=security)
         cfg.write_config(config)
@@ -78,6 +65,8 @@ def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password=''
     if via == name:
         logger.error(c.MSG_CONNECT_VIA_SELF)
         return STATUS_FAIL
+
+    config = cfg.config
 
     if via and not config.get_account(via):
         logger.error(f"Jump account '{via}' doesn't exist.")
@@ -100,7 +89,8 @@ def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password=''
 
 
 def handle_update(name, update_fields):
-    config = cfg.read_config()
+    config = cfg.config
+
     if not update_fields:
         logger.error('Nothing to update')
         return STATUS_FAIL
@@ -137,6 +127,8 @@ def handle_update(name, update_fields):
 
 
 def handle_del(name):
+    config = cfg.config
+
     if not config.remove_account(name):
         logger.error(f'Failed to delete.')
         return STATUS_FAIL
@@ -147,6 +139,8 @@ def handle_del(name):
 
 
 def handle_list(key='name', reverse=False):
+    config = cfg.config
+
     accounts = config.get_accounts()
 
     print('%-20s%-30s%-20s%-20s' % ('name', 'host', 'user', 'via'))
@@ -158,6 +152,8 @@ def handle_list(key='name', reverse=False):
 
 
 def handle_show(name, password=False):
+    config = cfg.config
+
     account = config.get_account(name, decrypt=password)
     if not account:
         logger.error(c.MSG_ACCOUNT_NOT_FOUND)
@@ -171,6 +167,8 @@ def handle_show(name, password=False):
 
 
 def handle_connect(name, via='', forwards=None, interact=True, background=False, extras='', exec=''):
+    config = cfg.config
+
     account = config.get_account(name, decrypt=True)
     if not account:
         logger.error(c.MSG_ACCOUNT_NOT_FOUND)
@@ -182,6 +180,9 @@ def handle_connect(name, via='', forwards=None, interact=True, background=False,
     while True:
         ret = sshwrap.ssh(account, vias=via, forwards=forwards, interact=interact,
                           background=background, extras=extras, exec=exec)
+        if not RETRY:
+            return ret
+
         if ret == STATUS_SUCCESS:
             break
 
@@ -219,7 +220,7 @@ def handle_exec(name, via='', tty=True, exec=[]):
     return handle_connect(name, via=via, extras=extras, exec=_exec)
 
 
-def handle_scp(src, dst, via=''):
+def handle_scp(src, dst, via='', with_forward=False):
     targets = TargetPair(src, dst)
 
     if targets.both_are_remote():
@@ -227,14 +228,16 @@ def handle_scp(src, dst, via=''):
         logger.error('Copy between remote targets are not supported yet.')
         return STATUS_FAIL
 
+    config = cfg.read_config()
+
     name = targets.src.host or targets.dst.host
-    account = cnfig.get_account(name)
+    account = config.get_account(name, decrypt=True)
 
     if not account:
         logger.error('Account not found')
         return STATUS_FAIL
 
-    return sshwrap.scp(account, targets, vias=via)
+    return sshwrap.scp(account, targets, vias=via, with_forward=with_forward)
 
 
 class RetryType(click.ParamType):
@@ -415,6 +418,14 @@ def command_socks(name, port, via, background):
 @click.option('-v', '--via')
 def command_scp(src, dst, via):
     return handle_scp(src, dst, via=via)
+
+
+@cli.command('scp2', help='Copy files with specified accounts. This can be used for scp without ProxyJump option support.')
+@click.argument('src')
+@click.argument('dst')
+@click.option('-v', '--via')
+def command_scp2(src, dst, via):
+    return handle_scp(src, dst, via=via, with_forward=True)
 
 
 @cli.command('exec', help='Execute a command on the remote host.')
