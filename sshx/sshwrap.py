@@ -129,6 +129,7 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
                                                exec=exec)
 
     # connect
+    p = None
     try:
         logger.debug(command)
 
@@ -162,13 +163,13 @@ def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, ba
 
         p.write_to_stdout(p.after)
         p.interact()
-
     except Exception as e:
         logger.error(c.MSG_CONNECTION_ERROR)
         logger.debug(e)
         return STATUS_FAIL
     finally:
-        p.close()
+        if p:
+            p.close()
 
 
 def scp_pexpect(account, targets):
@@ -189,6 +190,8 @@ def scp_pexpect(account, targets):
                                                port=account.port,
                                                src=src,
                                                dst=dst)
+
+    p = None
     try:
         logger.debug(command)
 
@@ -219,12 +222,16 @@ def scp_pexpect(account, targets):
         if r == 0:
             logger.error(c.MSG_CONNECTION_TIMED_OUT)
             return STATUS_FAIL
+
         p.write_to_stdout(p.after)
         p.interact()
     except Exception as e:
         logger.error(c.MSG_CONNECTION_ERROR)
         logger.debug(e)
         return STATUS_FAIL
+    finally:
+        if p:
+            p.close()
 
 
 def find_available_port():
@@ -270,6 +277,8 @@ def scp_pexpect2(account, targets, jumps):
                                                port=port,
                                                src=src,
                                                dst=dst)
+
+    p = None
     try:
         logger.debug(command)
 
@@ -291,12 +300,16 @@ def scp_pexpect2(account, targets, jumps):
         if r == 0:
             logger.error(c.MSG_CONNECTION_TIMED_OUT)
             return STATUS_FAIL
+
         p.write_to_stdout(p.after)
         p.interact()
     except Exception as e:
         logger.error(c.MSG_CONNECTION_ERROR)
         logger.debug(e)
         return STATUS_FAIL
+    finally:
+        if p:
+            p.close()
 
 
 def has_command(command):
