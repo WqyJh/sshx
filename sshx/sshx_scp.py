@@ -1,4 +1,5 @@
-from sshx import cfg
+from . import cfg
+from .sshx import config
 
 
 _SCP_TARGET = '{user}@{host}:{path}'
@@ -25,7 +26,7 @@ class Target(object):
             return self.path
 
         if self.host:
-            account = cfg.read_account(self.host)
+            account = config.get_account(self.host)
             if account:
                 if not host:
                     host = account.host

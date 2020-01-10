@@ -32,7 +32,7 @@ class Account(object):
         '''
         Return true when all values match utils.is_str().
         '''
-        return all(map(utils.is_str, self.__dict__.values()))
+        return all(map(utils.is_str, self.__dict__.values())) and (self.name != self.via)
 
     def __str__(self):
         return str(self.__dict__)

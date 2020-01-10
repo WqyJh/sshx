@@ -7,6 +7,7 @@ import random
 from getpass import getpass
 
 from . import tokenizer
+from . import const as c
 
 
 class ClsDictEncoder(json.JSONEncoder):
@@ -37,3 +38,18 @@ def read_password(prompt='Password:'):
 
 def read_passphrase():
     return read_password(prompt='Passphrase:')
+
+
+def parse_user_host_port(s):
+    '''
+    user@host:port -> (user, host, port)
+    '''
+    user, host_port = s.split('@')
+    splited = host_port.split(':')
+
+    if len(splited) == 2:
+        host, port = splited
+    else:
+        host, port = splited[0], c.DEFAULT_PORT
+
+    return user, host, port

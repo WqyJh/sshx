@@ -19,6 +19,7 @@ itsdangerous = "*"
 pexpect = "*"
 paramiko = "*"
 click = "*"
+lazy-object-proxy = "*"
 
 [requires]
 python_version = "3.6"

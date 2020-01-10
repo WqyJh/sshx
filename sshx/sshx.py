@@ -4,6 +4,8 @@ import sys
 import time
 import click
 
+import lazy_object_proxy as lazy
+
 from collections import OrderedDict
 
 from . import __version__, logger, set_debug
@@ -20,32 +22,36 @@ RETRY = 0
 RETRY_INTERVAL = 0
 
 
-def perform_init(security=False):
-    os.makedirs(cfg.CONFIG_DIR, mode=0o700, exist_ok=True)
-    cfg.create_config_file()
+def get_config():
+    try:
+        return cfg.read_config()
+    except Exception as e:
+        raise Exception(c.MSG_CONFIG_BROKEN)
 
-    phrase = utils.read_passphrase() if security else utils.random_str(32)
 
-    config = cfg.Config({
-        'security': security,
-        'phrase': phrase,
-        'accounts': [],
-    })
+config = lazy.Proxy(get_config)
 
-    cfg.write_config(config)
+
+def _reset():
+    '''
+    Reset the module status.
+    Only for unittests.
+    '''
+    global config
+    config = lazy.Proxy(get_config)
 
 
 def handle_init(force=False, security=False):
     check = cfg.check_init()
 
     if check == cfg.STATUS_UNINIT:
-        perform_init(security=security)
+        cfg.init_config(security=security)
         logger.info('Initialized.')
         return STATUS_SUCCESS
     elif check == cfg.STATUS_INITED:
         if force:
             cfg.remove_all_config()
-            perform_init(security=security)
+            cfg.init_config(security=security)
             logger.info('Force initialized.')
             return STATUS_SUCCESS
         else:
@@ -54,31 +60,21 @@ def handle_init(force=False, security=False):
             return STATUS_FAIL
     elif check == cfg.STATUS_BROKEN:
         cfg.remove_all_config()
-        perform_init(security=security)
+        cfg.init_config(security=security)
         logger.info('Re-initialized.')
         return STATUS_SUCCESS
 
 
 def handle_config(security=None, chphrase=False):
-    config = cfg.read_config()
-
     if security is not None:
-        if security:
-            if config.security:
-                logger.error('Already in security mode.')
-                return STATUS_FAIL
-            config.security = True
-            chphrase = True
-        else:
-            if not config.security:
-                logger.error('Not in security mode.')
-            config.security = False
-            chphrase = True
+        config.set_security(security=security)
+        cfg.write_config(config)
+        return STATUS_SUCCESS
 
     if chphrase:
-        cfg.decrypt_accounts(config)
-        config.phrase = utils.read_passphrase() if config.security else utils.random_str(32)
+        config.reset_passphrase()
         cfg.write_config(config)
+        logger.info('Passphrase changed.')
         return STATUS_SUCCESS
 
     return STATUS_FAIL
@@ -89,74 +85,75 @@ def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password=''
         logger.error(c.MSG_CONNECT_VIA_SELF)
         return STATUS_FAIL
 
-    if via and not cfg.read_account(via):
+    if via and not config.get_account(via):
         logger.error(f"Jump account '{via}' doesn't exist.")
         return STATUS_FAIL
 
-    if cfg.write_account(cfg.Account(
+    if config.get_account(name):
+        logger.error('Account exists!')
+        return STATUS_FAIL
+
+    account = cfg.Account(
         name=name, host=host, port=port, via=via,
         user=user, password=password, identity=identity,
-    )):
+    )
+    if config.add_account(account):
+        cfg.write_config(config)
         logger.info('Account added.')
         return STATUS_SUCCESS
     else:
-        logger.error('Account exists!')
         return STATUS_FAIL
 
 
 def handle_update(name, update_fields):
+    config = cfg.read_config()
     if not update_fields:
         logger.error('Nothing to update')
         return STATUS_FAIL
 
     decrypt = True if 'password' in update_fields else False
 
-    account = cfg.read_account(name, decrypt=decrypt)
+    account = config.get_account(name, decrypt=decrypt)
     if not account:
         logger.error(c.MSG_ACCOUNT_NOT_FOUND)
         return STATUS_FAIL
 
-    if 'via' in update_fields:
-        via = update_fields['via']
-        if via == name:
+    newname = update_fields.pop('name', None)
+    if newname:
+        if config.rename_account(account, newname):
+            logger.info(f"Account {name} was renamed to {newname}.")
+        else:
+            logger.info(f"Failed to rename '{name}' to '{newname}'")
+            return STATUS_FAIL
+
+    via = update_fields.get('via', None)
+    if via:
+        if name == via:
             logger.error(c.MSG_CONNECT_VIA_SELF)
             return STATUS_FAIL
 
-        if not cfg.read_account(via, decrypt=decrypt):
+        if not config.get_account(via):
             logger.error(f"Jump account '{via}' doesn't exist.")
             return STATUS_FAIL
 
-    if 'name' in update_fields and update_fields['name'] != account.name:
-        handle_del(name)
-
     account.update(update_fields)
-    if cfg.write_account(account):
-        logger.info('Account updated.')
-        return STATUS_SUCCESS
-    else:
-        logger.error(c.MSG_CONFIG_BROKEN)
-        return STATUS_FAIL
+    cfg.write_config(config)
+    logger.info('Account updated.')
+    return STATUS_SUCCESS
 
 
 def handle_del(name):
-    config = cfg.read_config()
-    if not config:
-        logger.error(c.MSG_CONFIG_BROKEN)
+    if not config.remove_account(name):
+        logger.error(f'Failed to delete.')
         return STATUS_FAIL
 
-    account = cfg.find_by_name(config.accounts, name)
-    if not account:
-        logger.error(c.MSG_ACCOUNT_NOT_FOUND)
-        return STATUS_FAIL
-
-    config.accounts.remove(account)
     cfg.write_config(config)
     logger.info('Acccount deleted.')
     return STATUS_SUCCESS
 
 
 def handle_list(key='name', reverse=False):
-    accounts = cfg.read_accounts(decrypt=False)
+    accounts = config.get_accounts()
 
     print('%-20s%-30s%-20s%-20s' % ('name', 'host', 'user', 'via'))
     print('%-20s%-30s%-20s%-20s' % ('-----', '-----', '-----', '-----'))
@@ -167,7 +164,7 @@ def handle_list(key='name', reverse=False):
 
 
 def handle_show(name, password=False):
-    account = cfg.read_account(name, decrypt=password)
+    account = config.get_account(name, decrypt=password)
     if not account:
         logger.error(c.MSG_ACCOUNT_NOT_FOUND)
         return STATUS_FAIL
@@ -180,12 +177,13 @@ def handle_show(name, password=False):
 
 
 def handle_connect(name, via='', forwards=None, interact=True, background=False, extras='', exec=''):
-    account = cfg.read_account(name)
+    account = config.get_account(name, decrypt=True)
     if not account:
         logger.error(c.MSG_ACCOUNT_NOT_FOUND)
         return STATUS_FAIL
 
     retry = RETRY
+    via = via or account.via
 
     while True:
         ret = sshwrap.ssh(account, vias=via, forwards=forwards, interact=interact,
@@ -236,28 +234,13 @@ def handle_scp(src, dst, via=''):
         return STATUS_FAIL
 
     name = targets.src.host or targets.dst.host
-    account = cfg.read_account(name)
+    account = cnfig.get_account(name)
 
     if not account:
         logger.error('Account not found')
         return STATUS_FAIL
 
     return sshwrap.scp(account, targets, vias=via)
-
-
-def parse_user_host_port(s):
-    '''
-    user@host:port -> (user, host, port)
-    '''
-    user, host_port = s.split('@')
-    splited = host_port.split(':')
-
-    if len(splited) == 2:
-        host, port = splited
-    else:
-        host, port = splited[0], c.DEFAULT_PORT
-
-    return user, host, port
 
 
 class RetryType(click.ParamType):
@@ -344,7 +327,7 @@ def command_config(security, chphrase):
 def command_add(name, l, host, port, user, password, identity, via):
     password = utils.read_password() if password or not identity else ''
     if l:
-        user, host, port = parse_user_host_port(l)
+        user, host, port = utils.parse_user_host_port(l)
 
     return handle_add(name, host, port=port, user=user, password=password,
                       identity=identity, via=via)
@@ -456,7 +439,11 @@ def process_result(result, debug, interval, countmax, retry, retry_interval):
 
 
 def invoke(argv):
-    return cli(args=argv, standalone_mode=False)
+    try:
+        return cli(args=argv, standalone_mode=False)
+    except Exception as e:
+        logger.error(e)
+        return STATUS_FAIL
 
 
 def main():

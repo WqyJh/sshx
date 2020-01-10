@@ -3,6 +3,8 @@ import mock
 import shutil
 import unittest
 
+import lazy_object_proxy as lazy
+
 from .. import cfg
 from .. import sshx
 from .. import utils
@@ -32,7 +34,6 @@ PASSWORD2 = 'password2'
 
 
 class CommandTest(unittest.TestCase):
-
     def test_init(self):
         with mock.patch('sshx.sshx.handle_init') as m:
             sshx.invoke(['init', ])
@@ -177,6 +178,7 @@ class CommandTest(unittest.TestCase):
 
 class FunctionalTest(unittest.TestCase):
     def setUp(self):
+        sshx._reset()
         cfg.set_config_dir('.tmp')
 
     def tearDown(self):
@@ -185,43 +187,50 @@ class FunctionalTest(unittest.TestCase):
     def test_init(self):
         self.assertEqual(cfg.STATUS_UNINIT, cfg.check_init())
 
-        ret = sshx.handle_init(force=False)
+        ret = sshx.handle_init()
         self.assertEqual(STATUS_SUCCESS, ret)
         config = cfg.read_config()
         self.assertTrue(utils.is_str(config.phrase))
         self.assertFalse(config.security)
         self.assertEqual(0, len(config.accounts))
+        self.assertIsNotNone(config.get_passphrase())
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
+        phrase = config.phrase
 
-        ret = sshx.handle_init(force=False)
+        sshx._reset()
+        ret = sshx.handle_init()
         self.assertEqual(STATUS_FAIL, ret)
         config = cfg.read_config()
         self.assertTrue(utils.is_str(config.phrase))
         self.assertFalse(config.security)
         self.assertEqual(0, len(config.accounts))
+        self.assertIsNotNone(config.get_passphrase())
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
+        phrase = config.phrase
 
-        phrase1 = config.phrase
+        sshx._reset()
         ret = sshx.handle_init(force=True)
         self.assertEqual(STATUS_SUCCESS, ret)
         config = cfg.read_config()
-        self.assertNotEqual(phrase1, config.phrase)
         self.assertFalse(config.security)
         self.assertEqual(0, len(config.accounts))
+        self.assertIsNotNone(config.get_passphrase())
+        self.assertNotEqual(phrase, config.phrase)
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
         # test security option
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
+            sshx._reset()
             ret = sshx.handle_init(force=True, security=True)
-            m_read_password.assert_called_once()
-            # m_read_password.reset_mock()
             self.assertEqual(STATUS_SUCCESS, ret)
+            m_read_password.assert_called_once()
+            m_read_password.reset_mock()
             config = cfg.read_config()
             self.assertTrue(config.security)
-            cfg._cached_passphrase = None
-            self.assertTrue(cfg.verify_passphrase(config))
-            # m_read_password.assert_called_once()
             self.assertEqual(0, len(config.accounts))
+            self.assertIsNotNone(config.get_passphrase())
+            self.assertEqual(PASSWORD1, config._phrase)
+            m_read_password.assert_called_once()
             self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
     def test_config(self):
@@ -233,96 +242,102 @@ class FunctionalTest(unittest.TestCase):
 
             config = cfg.read_config()
             self.assertFalse(config.security)
-            phrase = config.phrase
-            cfg._cached_passphrase = None
+            self.assertIsNotNone(config.get_passphrase())
 
         # Enable security option
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m:
+            sshx._reset()
             ret = sshx.handle_config(security=True)
             self.assertEqual(STATUS_SUCCESS, ret)
             m.assert_called()
 
             config = cfg.read_config()
-            self.assertNotEqual(phrase, config.phrase)
-            self.assertTrue(cfg.verify_passphrase(config))
-            phrase = config.phrase
-            cfg._cached_passphrase = None
+            self.assertIsNotNone(config.get_passphrase())
+            self.assertEqual(PASSWORD1, config._phrase)
 
         # Change passphrase
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD2) as m:
+            sshx._reset()
             ret = sshx.handle_config(chphrase=True)
             self.assertEqual(STATUS_SUCCESS, ret)
             m.assert_called()
 
             config = cfg.read_config()
             self.assertTrue(config.security)
-            self.assertNotEqual(phrase, config.phrase)
-            self.assertTrue(cfg.verify_passphrase(config))
-            self.assertEqual(PASSWORD2, config.phrase)
-            phrase = config.phrase
-            cfg._cached_passphrase = None
+            self.assertIsNotNone(config.get_passphrase())
+            self.assertEqual(PASSWORD2, config._phrase)
 
         # Disable security option
-        with mock.patch('sshx.utils.read_password', return_value=PASSWORD2) as m:
+        with mock.patch('sshx.utils.random_str', return_value=PASSWORD1) as m:
+            sshx._reset()
             ret = sshx.handle_config(security=False)
             self.assertEqual(STATUS_SUCCESS, ret)
-            m.assert_not_called()
+            m.assert_called_once()
 
             config = cfg.read_config()
             self.assertFalse(config.security)
             # config.phrase is randomly generate
-            self.assertNotEqual(phrase, config.phrase)
-            self.assertTrue(cfg.verify_passphrase(config))
-            self.assertNotEqual(PASSWORD2, config.phrase)
+            self.assertIsNotNone(config.get_passphrase())
+            self.assertIsNone(config._phrase)
+            self.assertEqual(PASSWORD1, config.phrase)
+            m.assert_called_once()
             phrase = config.phrase
-            cfg._cached_passphrase = None
 
         # Change passphrase
-        with mock.patch('sshx.utils.read_password', return_value=PASSWORD2) as m:
+        with mock.patch('sshx.utils.random_str', return_value=PASSWORD2) as m:
+            sshx._reset()
             ret = sshx.handle_config(chphrase=True)
             self.assertEqual(STATUS_SUCCESS, ret)
-            m.assert_not_called()
+            m.assert_called_once()
 
             config = cfg.read_config()
             self.assertFalse(config.security)
+            self.assertIsNotNone(config.get_passphrase())
             self.assertNotEqual(phrase, config.phrase)
-            self.assertTrue(cfg.verify_passphrase(config))
-            self.assertIsNone(cfg._cached_passphrase)
-            cfg._cached_passphrase = None
 
     def test_add(self):
         ret = sshx.handle_init()
 
+        sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_SUCCESS, ret)
-        self.assertEqual(1, cfg.accounts_num())
-        acc = cfg.read_account(NAME1)
+        config = cfg.read_config()
+        self.assertEqual(1, len(config.accounts))
+
+        acc = config.get_account(NAME1, decrypt=True)
         self.assertEqual(HOST1, acc.host)
         self.assertEqual(PORT1, acc.port)
         self.assertEqual(USER1, acc.user)
         self.assertEqual(PASSWORD1, acc.password)
         self.assertEqual(IDENTITY1, acc.identity)
 
+        sshx._reset()
         ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_SUCCESS, ret)
-        self.assertEqual(2, cfg.accounts_num())
+        config = cfg.read_config()
+        self.assertEqual(2, len(config.accounts))
 
     def test_add_via(self):
         ret = sshx.handle_init()
 
+        sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_FAIL, ret)
 
+        sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME2,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_FAIL, ret)
 
+        sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_SUCCESS, ret)
+
+        sshx._reset()
         ret = sshx.handle_add(NAME2, HOST1, port=PORT1, via=NAME1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_SUCCESS, ret)
@@ -330,42 +345,54 @@ class FunctionalTest(unittest.TestCase):
     def test_update(self):
         ret = sshx.handle_init()
         self.assertEqual(STATUS_SUCCESS, ret)
+
+        sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_SUCCESS, ret)
 
+        sshx._reset()
         ret = sshx.handle_update(NAME1, update_fields={
             'identity': IDENTITY2,
             'password': PASSWORD2,
         })
         self.assertEqual(STATUS_SUCCESS, ret)
-        self.assertEqual(1, cfg.accounts_num())
-        account = cfg.read_account(NAME1)
+        config = cfg.read_config()
+        self.assertEqual(1, len(config.accounts))
+        account = config.get_account(NAME1, decrypt=True)
         self.assertEqual(IDENTITY2, account.identity)
         self.assertEqual(PASSWORD2, account.password)
 
+        sshx._reset()
         ret = sshx.handle_update(NAME2, update_fields={
             'identity': IDENTITY2,
         })
         self.assertEqual(STATUS_FAIL, ret)
-        self.assertEqual(1, cfg.accounts_num())
+        config = cfg.read_config()
+        self.assertEqual(1, len(config.accounts))
 
+        sshx._reset()
         ret = sshx.handle_update(NAME1, update_fields={
             'name': NAME2,
         })
         self.assertEqual(STATUS_SUCCESS, ret)
-        self.assertEqual(1, cfg.accounts_num())
-        account = cfg.read_account(NAME1)
+        config = cfg.read_config()
+        self.assertEqual(1, len(config.accounts))
+        account = config.get_account(NAME1)
         self.assertIsNone(account)
-        account = cfg.read_account(NAME2)
+        account = config.get_account(NAME2)
         self.assertEqual(IDENTITY2, account.identity)
 
     def test_del(self):
         ret = sshx.handle_init()
         self.assertEqual(STATUS_SUCCESS, ret)
+
+        sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_SUCCESS, ret)
+
+        sshx._reset()
         ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_SUCCESS, ret)
@@ -373,11 +400,13 @@ class FunctionalTest(unittest.TestCase):
         config = cfg.read_config()
         self.assertEqual(2, len(config.accounts))
 
+        sshx._reset()
         sshx.handle_del(NAME1)
         config = cfg.read_config()
         self.assertEqual(1, len(config.accounts))
         self.assertIsNone(cfg.find_by_name(config.accounts, NAME1))
 
+        sshx._reset()
         sshx.handle_del(NAME2)
         config = cfg.read_config()
         self.assertEqual(0, len(config.accounts))
@@ -386,14 +415,19 @@ class FunctionalTest(unittest.TestCase):
     def test_connect(self):
         ret = sshx.handle_init()
         self.assertEqual(STATUS_SUCCESS, ret)
+
+        sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_SUCCESS, ret)
+
+        sshx._reset()
         ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY2)
         self.assertEqual(STATUS_SUCCESS, ret)
 
         with mock.patch('sshx.sshwrap.ssh') as m:
+            sshx._reset()
             sshx.handle_connect(NAME1)
             m.assert_called()
             # assert_called_with() failed,
@@ -401,6 +435,7 @@ class FunctionalTest(unittest.TestCase):
             # m.assert_called_with(cfg.Account(
             #     NAME1, user=USER1, host=HOST1, port=PORT1, password=PASSWORD1, identity=IDENTITY1))
 
+            sshx._reset()
             sshx.handle_connect(NAME2)
             m.assert_called()
             # assert_called_with() failed,

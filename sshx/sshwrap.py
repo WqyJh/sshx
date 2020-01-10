@@ -10,8 +10,7 @@ import paramiko
 
 
 from . import const as c
-from . import utils, logger
-from .cfg import read_account
+from . import utils, logger, cfg
 from .sshx_forward import Forwards
 from .const import STATUS_SUCCESS, STATUS_FAIL
 
@@ -60,16 +59,18 @@ _SCP_COMMAND_IDENTITY = 'scp -r -P {port} {jump} {src} {dst} -i {identity}'
 
 def find_vias(vias):
     _vias = vias.split(',')
-    return [read_account(v) for v in _vias]
+    config = cfg.read_config()
+    return [config.get_account(v, decrypt=True) for v in _vias]
 
 
 def find_jumps(account):
     jumps = []
+    config = cfg.read_config()
 
-    a = read_account(account.via)
+    a = config.get_account(account.via)
     while a:
         jumps.append(a)
-        a = read_account(a.via)
+        a = config.get_account(a.via)
     return jumps
 
 
