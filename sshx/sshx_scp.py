@@ -1,8 +1,10 @@
 from . import cfg
-from .sshx import config
 
 
 _SCP_TARGET = '{user}@{host}:{path}'
+
+
+config = cfg.config
 
 
 class Target(object):

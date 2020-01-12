@@ -22,14 +22,7 @@ RETRY = 0
 RETRY_INTERVAL = 0
 
 
-def get_config():
-    try:
-        return cfg.read_config()
-    except Exception as e:
-        raise Exception(c.MSG_CONFIG_BROKEN)
-
-
-config = lazy.Proxy(get_config)
+config = cfg.config
 
 
 def _reset():
@@ -38,7 +31,8 @@ def _reset():
     Only for unittests.
     '''
     global config
-    config = lazy.Proxy(get_config)
+    cfg._reset()
+    config = cfg.config
 
 
 def handle_init(force=False, security=False):

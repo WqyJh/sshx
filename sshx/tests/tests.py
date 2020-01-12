@@ -26,7 +26,7 @@ HOST1 = 'host1'
 PORT1 = 'port1'
 USER1 = 'user1'
 PASSWORD1 = 'password1'
-IDENTITY1 = ''
+NOIDENTITY = ''
 
 NAME2 = 'name2'
 IDENTITY2 = 'identity2'
@@ -60,27 +60,27 @@ class CommandTest(unittest.TestCase):
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
             with mock.patch('sshx.sshx.handle_add') as m:
                 sshx.invoke(['add', NAME1, '-H', HOST1, '-P', PORT1,
-                             '-u', USER1, '-p', '-i', IDENTITY1])
+                             '-u', USER1, '-p', '-i', NOIDENTITY])
                 m_read_password.assert_called_once()
                 m.assert_called_with(NAME1, HOST1, port=PORT1, user=USER1,
-                                     password=PASSWORD1, identity=IDENTITY1, via='')
+                                     password=PASSWORD1, identity=NOIDENTITY, via='')
 
     def test_add2(self):
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
             with mock.patch('sshx.sshx.handle_add') as m:
                 sshx.invoke(['add', NAME1, '-l', '%s@%s:%s' % (USER1, HOST1, PORT1),
-                             '-p', '-i', IDENTITY1])
+                             '-p', '-i', NOIDENTITY])
                 m_read_password.assert_called_once()
                 m.assert_called_with(NAME1, HOST1, port=PORT1, user=USER1,
-                                     password=PASSWORD1, identity=IDENTITY1, via='')
+                                     password=PASSWORD1, identity=NOIDENTITY, via='')
 
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
             with mock.patch('sshx.sshx.handle_add') as m:
                 sshx.invoke(['add', NAME1, '-l', '%s@%s' % (USER1, HOST1),
-                             '-p', '-i', IDENTITY1])
+                             '-p', '-i', NOIDENTITY])
                 m_read_password.assert_called_once()
                 m.assert_called_with(NAME1, HOST1, port=c.DEFAULT_PORT, user=USER1,
-                                     password=PASSWORD1, identity=IDENTITY1, via='')
+                                     password=PASSWORD1, identity=NOIDENTITY, via='')
 
     def test_update(self):
         with mock.patch('sshx.utils.read_password', return_value=PASSWORD2) as m_read_password:
@@ -91,14 +91,14 @@ class CommandTest(unittest.TestCase):
                 })
 
                 sshx.invoke(['update', NAME1, '-H', HOST1, '-P',
-                             PORT1, '-u', USER1, '-p', '-i', IDENTITY1, '-v', NAME2])
+                             PORT1, '-u', USER1, '-p', '-i', NOIDENTITY, '-v', NAME2])
                 m_read_password.assert_called_once()
                 m.assert_called_with(NAME1, update_fields={
                     'host': HOST1,
                     'port': PORT1,
                     'user': USER1,
                     'password': PASSWORD2,
-                    'identity': IDENTITY1,
+                    'identity': NOIDENTITY,
                     'via': NAME2,
                 })
 
@@ -300,7 +300,7 @@ class FunctionalTest(unittest.TestCase):
 
         sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
         config = cfg.read_config()
         self.assertEqual(1, len(config.accounts))
@@ -310,11 +310,11 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual(PORT1, acc.port)
         self.assertEqual(USER1, acc.user)
         self.assertEqual(PASSWORD1, acc.password)
-        self.assertEqual(IDENTITY1, acc.identity)
+        self.assertEqual(NOIDENTITY, acc.identity)
 
         sshx._reset()
         ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
         config = cfg.read_config()
         self.assertEqual(2, len(config.accounts))
@@ -324,22 +324,22 @@ class FunctionalTest(unittest.TestCase):
 
         sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_FAIL, ret)
 
         sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME2,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_FAIL, ret)
 
         sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
 
         sshx._reset()
         ret = sshx.handle_add(NAME2, HOST1, port=PORT1, via=NAME1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
 
     def test_update(self):
@@ -348,7 +348,7 @@ class FunctionalTest(unittest.TestCase):
 
         sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
 
         sshx._reset()
@@ -389,12 +389,12 @@ class FunctionalTest(unittest.TestCase):
 
         sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
 
         sshx._reset()
         ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
 
         config = cfg.read_config()
@@ -412,13 +412,15 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual(0, len(config.accounts))
         self.assertIsNone(cfg.find_by_name(config.accounts, NAME2))
 
-    def test_connect(self):
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_connect(self, m):
+        from .. import sshwrap
         ret = sshx.handle_init()
         self.assertEqual(STATUS_SUCCESS, ret)
 
         sshx._reset()
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
 
         sshx._reset()
@@ -426,23 +428,22 @@ class FunctionalTest(unittest.TestCase):
                               user=USER1, password=PASSWORD1, identity=IDENTITY2)
         self.assertEqual(STATUS_SUCCESS, ret)
 
-        with mock.patch('sshx.sshwrap.ssh') as m:
-            sshx._reset()
-            sshx.handle_connect(NAME1)
-            m.assert_called()
-            # assert_called_with() failed,
-            # maybe because the bug of mock.
-            # m.assert_called_with(cfg.Account(
-            #     NAME1, user=USER1, host=HOST1, port=PORT1, password=PASSWORD1, identity=IDENTITY1))
+        sshx._reset()
+        sshx.handle_connect(NAME1)
+        m.assert_called_with(sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='', forwards='', jump='', exec='',
+        ))
+        # m.expect.assert_called()
+        # m.sendline.assert_called_with(PASSWORD1)
 
-            sshx._reset()
-            sshx.handle_connect(NAME2)
-            m.assert_called()
-            # assert_called_with() failed,
-            # maybe because the bug of mock.
-            # m.assert_called_with(cfg.Account(
-            #     NAME2, user=USER1, host=HOST1, port=PORT1, password=PASSWORD1, identity=IDENTITY2))
-
+        sshx._reset()
+        sshx.handle_connect(NAME2)
+        m.assert_called()
+        m.assert_called_with(sshwrap._SSH_COMMAND_IDENTITY.format(
+            user=USER1, host=HOST1, port=PORT1, identity=IDENTITY2,
+            extras='', forwards='', jump='', exec='',
+        ))
 
 if __name__ == '__main__':
     unittest.main()

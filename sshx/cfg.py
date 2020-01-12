@@ -2,6 +2,7 @@ import os
 import io
 import stat
 import shutil
+import lazy_object_proxy as lazy
 
 from typing import List
 
@@ -11,6 +12,7 @@ from .account import *
 
 from . import utils
 from . import tokenizer
+from . import const as c
 
 
 _CONFIG_DIR = '.sshx'
@@ -240,3 +242,22 @@ def init_config(security=False):
 
 def remove_all_config():
     shutil.rmtree(CONFIG_DIR)
+
+
+def get_config():
+    try:
+        return read_config()
+    except Exception as e:
+        raise Exception(c.MSG_CONFIG_BROKEN)
+
+
+config = lazy.Proxy(get_config)
+
+
+def _reset():
+    '''
+    Reset the module status.
+    Only for unittests.
+    '''
+    global config
+    config = lazy.Proxy(get_config)
