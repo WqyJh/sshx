@@ -51,6 +51,9 @@ class TargetPair(object):
     def both_are_remote(self):
         return self.src.is_remote() and self.dst.is_remote()
 
+    def compile(self, src_host='', dst_host=''):
+        return self.src.compile(host=src_host), self.dst.compile(host=dst_host)
+
     def __str__(self):
         return str(self.__dict__)
 

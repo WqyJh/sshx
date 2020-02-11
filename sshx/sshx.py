@@ -166,7 +166,8 @@ def handle_show(name, password=False):
     return STATUS_SUCCESS
 
 
-def handle_connect(name, via='', forwards=None, interact=True, background=False, extras='', exec=''):
+def handle_connect(name, via='', forwards=None, extras='', detach=False,
+                   tty=True, background=False, execute=True, cmd=''):
     config = cfg.config
 
     account = config.get_account(name, decrypt=True)
@@ -178,8 +179,9 @@ def handle_connect(name, via='', forwards=None, interact=True, background=False,
     via = via or account.via
 
     while True:
-        ret = sshwrap.ssh(account, vias=via, forwards=forwards, interact=interact,
-                          background=background, extras=extras, exec=exec)
+        ret = sshwrap.ssh(
+            account, vias=via, forwards=forwards, extras=extras, detach=detach,
+            tty=tty, background=background, execute=execute, cmd=cmd)
         if not RETRY:
             return ret
 
@@ -204,20 +206,22 @@ def handle_connect(name, via='', forwards=None, interact=True, background=False,
 def handle_forward(name, maps=None, rmaps=None, via='', background=False):
     forwards = Forwards(maps, rmaps)
 
-    return handle_connect(name, via=via, forwards=forwards, interact=False, background=background)
+    return handle_connect(name, via=via, forwards=forwards, detach=background,
+                          tty=False, background=background, execute=False)
 
 
 def handle_socks(name, via='', port=1080, background=False):
     # -D 1080           dynamic forwarding
     # -fNT -D 1080      ssh socks
     extras = f'-D {port}'
-    return handle_connect(name, via=via, interact=False, background=background,  extras=extras)
+    return handle_connect(name, via=via, extras=extras, detach=True,
+                          tty=False, background=background, execute=False)
 
 
-def handle_exec(name, via='', tty=True, exec=[]):
-    _exec = ' '.join(exec)
+def handle_exec(name, via='', tty=True, cmd=[]):
+    _cmd = ' '.join(cmd)
     extras = '-t' if tty else ''
-    return handle_connect(name, via=via, extras=extras, exec=_exec)
+    return handle_connect(name, via=via, extras=extras, cmd=_cmd)
 
 
 def handle_scp(src, dst, via='', with_forward=False):
@@ -434,7 +438,7 @@ def command_scp2(src, dst, via):
 @click.option('-v', '--via')
 @click.option('--tty', is_flag=True)
 def command_exec(name, cmd, via, tty):
-    return handle_exec(name, via=via, tty=tty, exec=cmd)
+    return handle_exec(name, via=via, tty=tty, cmd=cmd)
 
 
 @cli.resultcallback()

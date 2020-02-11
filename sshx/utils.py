@@ -8,6 +8,7 @@ from getpass import getpass
 
 from . import tokenizer
 from . import const as c
+from . import logger
 
 
 class ClsDictEncoder(json.JSONEncoder):
@@ -58,3 +59,18 @@ def parse_user_host_port(s):
 def format_command(s):
     '''Remove duplicate spaces in s and remove the leading and tailing spaces.'''
     return ' '.join(s.split())
+
+
+def kill_by_command(command):
+    import psutil
+
+    for p in psutil.process_iter():
+        if p.name() in command:
+            if command in ' '.join(p.cmdline()):
+                p.terminate()
+                gone, alive = psutil.wait_procs([p], timeout=3)
+                if p in alive:
+                    p.kill()
+                    logger.debug(f'process killed: {command}')
+                else:
+                    logger.debug(f'process terminated: {command}')

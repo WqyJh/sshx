@@ -157,4 +157,4 @@ class CommandTest(unittest.TestCase):
     def test_exec(self):
         with mock.patch('sshx.sshx.handle_exec') as m:
             sshx.invoke(['exec', NAME1, '--tty', '--', 'ls', '-al'])
-            m.assert_called_with(NAME1, via=None, tty=True, exec=('ls', '-al'))
+            m.assert_called_with(NAME1, via=None, tty=True, cmd=('ls', '-al'))

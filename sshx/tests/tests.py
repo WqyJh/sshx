@@ -5,6 +5,8 @@ import unittest
 
 import lazy_object_proxy as lazy
 
+from mock import call
+
 from .. import cfg
 from .. import sshx
 from .. import utils
@@ -337,6 +339,13 @@ def _assert_called_with(m, command):
     m.assert_called_with(utils.format_command(command))
 
 
+def _assert_called_with_n(self, m, commands):
+    calls = m.call_args_list
+    self.assertEqual(len(calls), len(commands))
+    for c, command in zip(m.call_args_list, commands):
+        self.assertEqual(c, call(utils.format_command(command)))
+
+
 class SpawnCommandTest(unittest.TestCase):
     def setUp(self):
         _patch_all_sshx_handle()
@@ -385,7 +394,7 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_connect(NAME1)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='', forwards='', jump='', exec='',
+            extras='', forwards='', jump='', cmd='',
         )
         _assert_called_with(m, command)
 
@@ -393,7 +402,7 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_connect(NAME2)
         command = sshwrap._SSH_COMMAND_IDENTITY.format(
             user=USER2, host=HOST2, port=PORT2, identity=IDENTITY2,
-            extras='', forwards='', jump='', exec='',
+            extras='', forwards='', jump='', cmd='',
         )
         _assert_called_with(m, command)
 
@@ -403,7 +412,7 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_connect(NAME1, via=NAME4)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='', forwards='', exec='',
+            extras='', forwards='', cmd='',
             jump=f'-J {USER4}@{HOST4}:{PORT4}'
         )
         _assert_called_with(m, command)
@@ -412,46 +421,55 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_connect(NAME2, via=f'{NAME4},{NAME5}')
         command = sshwrap._SSH_COMMAND_IDENTITY.format(
             user=USER2, host=HOST2, port=PORT2, identity=IDENTITY2,
-            extras='', forwards='', exec='',
+            extras='', forwards='', cmd='',
             jump=f'-J {USER4}@{HOST4}:{PORT4},{USER5}@{HOST5}:{PORT5}'
         )
         _assert_called_with(m, command)
 
+    @mock.patch('sshx.sshwrap.SSHPexpect.detach')
+    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_forward(self, m):
+    def test_forward(self, m, m_interact, m_detach):
         '''sshx forward <NAME1> -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,))
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-NT', forwards=f'-L {FORWARD1}', jump='', exec='',
+            extras='-NT', forwards=f'-L {FORWARD1}', jump='', cmd='',
         )
         _assert_called_with(m, command)
+        m_detach.assert_not_called()
 
         '''sshx forward <NAME1> -b -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,), background=True)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-fNT', forwards=f'-L {FORWARD1}', jump='', exec='',
+            extras='-fNT', forwards=f'-L {FORWARD1}', jump='', cmd='',
         )
         _assert_called_with(m, command)
+        m_detach.assert_called()
 
+    @mock.patch('sshx.sshwrap.SSHPexpect.detach')
+    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_forward_via(self, m):
+    def test_forward_via(self, m, m_interact, m_detach):
         '''sshx forward <NAME1> -v <NAME2> -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,), via=NAME2)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER2}@{HOST2}:{PORT2}', exec='',
+            extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER2}@{HOST2}:{PORT2}', cmd='',
         )
         _assert_called_with(m, command)
+        m_detach.assert_not_called()
 
         '''sshx forward <NAME1> -v <NAME2>,<NAME3> -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,), via=f'{NAME2},{NAME3}')
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER2}@{HOST2}:{PORT2},{USER3}@{HOST3}:{PORT3}', exec='',
+            extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER2}@{HOST2}:{PORT2},{USER3}@{HOST3}:{PORT3}', cmd='',
         )
         _assert_called_with(m, command)
+        m_detach.assert_not_called()
+
 
     @mock.patch('pexpect.spawn', autospec=True)
     def test_scp(self, m):
@@ -491,57 +509,44 @@ class SpawnCommandTest(unittest.TestCase):
         )
         _assert_called_with(m, command)
 
+    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_scp2_via_part1(self, m, m_findport):
+    def test_scp2_via(self, m, m_findport, m_interact):
         '''sshx scp2 -v <NAME4> <DIR1> <NAME1>:<DIR2>'''
         sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=NAME4, with_forward=True)
 
-        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+        command1 = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER4, host=HOST4, port=PORT4, identity=IDENTITY4,
-            extras='-fNT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump='', exec='',
+            extras='-fNT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump='', cmd='',
         )
-        _assert_called_with(m, command)
 
-    @mock.patch('sshx.sshwrap.ssh_pexpect2', return_value=STATUS_SUCCESS)
-    @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
-    @mock.patch('pexpect.spawn', autospec=True)
-    def test_scp2_via_part2(self, m, m_findport, test_scp2_via):
-        '''sshx scp2 -v <NAME4> <DIR1> <NAME1>:<DIR2>'''
-        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=NAME4, with_forward=True)
-
-        command = sshwrap._SCP_COMMAND_PASSWORD.format(
+        command2 = sshwrap._SCP_COMMAND_PASSWORD.format(
             port=LOCALPORT, jump='',
             src=DIR1, dst=f'{USER1}@{sshwrap.LOCALHOST}:{DIR2}',
         )
-        _assert_called_with(m, command)
 
+        _assert_called_with_n(self, m, (command1, command2))
+
+    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_scp2_via2_part1(self, m, m_findport):
+    def test_scp2_via2(self, m, m_findport, m_interact):
         '''sshx scp2 -v <NAME4>,<NAME5> <DIR1> <NAME1>:<DIR2>'''
         sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}',
                         via=f'{NAME4},{NAME5}', with_forward=True)
 
-        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+        command1 = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER5, host=HOST5, port=PORT5, identity=IDENTITY4,
-            extras='-fNT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump=f'-J {USER4}@{HOST4}:{PORT4}', exec='',
+            extras='-fNT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump=f'-J {USER4}@{HOST4}:{PORT4}', cmd='',
         )
-        _assert_called_with(m, command)
 
-    @mock.patch('sshx.sshwrap.ssh_pexpect2', return_value=STATUS_SUCCESS)
-    @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
-    @mock.patch('pexpect.spawn', autospec=True)
-    def test_scp2_via2_part2(self, m, m_findport, test_scp2_via):
-        '''sshx scp2 -v <NAME4>,<NAME5> <DIR1> <NAME1>:<DIR2>'''
-        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}',
-                        via=f'{NAME4},{NAME5}', with_forward=True)
-
-        command = sshwrap._SCP_COMMAND_PASSWORD.format(
+        command2 = sshwrap._SCP_COMMAND_PASSWORD.format(
             port=LOCALPORT, jump='',
             src=DIR1, dst=f'{USER1}@{sshwrap.LOCALHOST}:{DIR2}',
         )
-        _assert_called_with(m, command)
+
+        _assert_called_with_n(self, m, (command1, command2))
 
     @mock.patch('pexpect.spawn', autospec=True)
     def test_socks(self, m):
@@ -549,27 +554,27 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_socks(NAME1)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-D 1080 -NT', forwards='', jump='', exec='',
+            extras='-D 1080 -NT', forwards='', jump='', cmd='',
         )
         _assert_called_with(m, command)
 
     @mock.patch('pexpect.spawn', autospec=True)
     def test_exec(self, m):
         '''sshx exec <NAME1> -- <COMMAND1>'''
-        sshx.handle_exec(NAME1, exec=COMMAND1.split())
+        sshx.handle_exec(NAME1, cmd=COMMAND1.split())
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-t', forwards='', jump='', exec=COMMAND1,
+            extras='-t', forwards='', jump='', cmd=COMMAND1,
         )
         _assert_called_with(m, command)
 
     @mock.patch('pexpect.spawn', autospec=True)
     def test_exec_via(self, m):
         '''sshx exec <NAME1> -v <NAME4>,<NAME5> -- <COMMAND1>'''
-        sshx.handle_exec(NAME1, exec=COMMAND1.split(), via=f'{NAME4},{NAME5}')
+        sshx.handle_exec(NAME1, cmd=COMMAND1.split(), via=f'{NAME4},{NAME5}')
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-t', forwards='', exec=COMMAND1,
+            extras='-t', forwards='', cmd=COMMAND1,
             jump=f'-J {USER4}@{HOST4}:{PORT4},{USER5}@{HOST5}:{PORT5}'
         )
         _assert_called_with(m, command)

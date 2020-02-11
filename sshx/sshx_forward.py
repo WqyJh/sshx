@@ -1,13 +1,18 @@
 class Forward(object):
     def __init__(self, maps, local_forward):
-        if isinstance(maps, (list, tuple)):
-            self.maps = maps
-        elif isinstance(maps, str):
-            self.maps = [maps]
-        else:
-            self.maps = ''
+        self.maps = ''
+
+        if maps:
+            if isinstance(maps, (list, tuple)):
+                self.maps = maps
+            elif isinstance(maps, str):
+                self.maps = [maps]
 
         self.local_forward = local_forward
+
+    def split(self):
+        if self.maps:
+            return [m.split(':') for m in self.maps]
 
     def compile(self):
         if not self.maps:
