@@ -95,28 +95,34 @@ def compile_jumps(account, vias=None, prefix='-J '):
 
 
 class SSHPexpect(object):
-    def __init__(self, account, vias=None, forwards=None, extras='', interact=True, tty=True, background=False, execute=True, cmd=''):
+    def __init__(self, account, vias=None, forwards=None, extras='', tty=True, background=False, execute=True, cmd='', detach=False):
         self.account = account
         self.vias = vias
         self.forwards = forwards
         self.extras = extras
-        self.interact = interact
-        self.tty = tty
-        self.background = background
         self.execute = execute
         self.cmd = cmd
+
+        # detach    background  self.detach self.background
+        # True      True        True        False
+        # True      False       False       False
+        # False     True        False       True
+        # False     False       False       False
+        self.detach = background and detach
+        self.background = False if self.detach else background
+        self.tty = False if self.detach else tty
+
+        self.thread = None
 
         self.p = None
 
     def compile_flags(self):
         _flags_maps = [
-            {True: 'f', False: ''},
             {True: '', False: 'N'},
             {True: '', False: 'T'},
         ]
-        _flags = [self.background, self.execute, self.tty]
-        l = [m[f] for m, f in zip(_flags_maps, _flags)]
-        flags = ''.join(l)
+        _flags = [self.execute, self.tty]
+        flags = ''.join([m[f] for m, f in zip(_flags_maps, _flags)])
         return f' -{flags}' if flags else ''
 
     def compile_command(self):
@@ -174,20 +180,26 @@ class SSHPexpect(object):
             data = self.p.read_nonblocking(size=100, timeout=1)
             while data:
                 data = self.p.read_nonblocking(size=100, timeout=1)
-        except pexpect.EOF:
+        except (pexpect.EOF, pexpect.TIMEOUT):
             logger.debug('drain buffer to EOF')
 
-    def detach(self):
-        '''Detach the process so it won't be killed after the program exited.
-        Only works for background command.
+    def daemonize(self):
+        '''Detach the process.
+        Return True in parent process, False in child.
         '''
-        if self.background:
-            # Prevent further I/O operations
-            self.p.closed = True
+        import os
+        pid = os.fork()
+        if pid == 0:
+            # child
+            logger.debug('Run in child daemon.')
 
-            # Set the closed flag to True so that the ptyproc won't terminate
-            # the process during the deconstruction of it.
-            self.p.ptyproc.closed = True
+            # import sys
+            # fd = os.open(os.devnull, os.O_RDWR | os.O_CREAT)
+            # os.dup2(fd, sys.stdin.fileno())
+            # os.dup2(fd, sys.stdout.fileno())
+            # os.dup2(fd, sys.stderr.fileno())
+            return False
+        return True
 
     def interactive(self):
         p = self.p
@@ -201,12 +213,11 @@ class SSHPexpect(object):
             # Set auto-adjust window size
             signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
-            # if self.interact:
-            #     r = p.expect([pexpect.TIMEOUT, '\S'])
-            #     if r == 0:
-            #         logger.error(c.MSG_CONNECTION_TIMED_OUT)
-            #         return STATUS_FAIL
-            #     p.write_to_stdout(p.after)
+            r = p.expect([pexpect.TIMEOUT, '\S'])
+            if r == 0:
+                logger.error(c.MSG_CONNECTION_TIMED_OUT)
+                return STATUS_FAIL
+            p.write_to_stdout(p.after)
 
             p.interact(escape_character=None)
         return STATUS_SUCCESS
@@ -218,6 +229,10 @@ class SSHPexpect(object):
         self.start_process()
 
     def start_process(self):
+        if self.detach:
+            if self.daemonize():
+                return STATUS_SUCCESS
+
         try:
             self.p = pexpect.spawn(self.command)
 
@@ -239,6 +254,7 @@ class SCPPexpect(SSHPexpect):
         self.vias = vias
 
         self.background = False
+        self.detach = False
 
         self.p = None
 
@@ -326,9 +342,9 @@ class SCPPexpect2(SCPPexpect):
         logger.debug(self.command)
         self.start_process()
 
-        # if self.forwarding:
-        #     logger.debug('stop forwarding')
-        #     utils.kill_by_command(self.forwarding.command)
+        if self.forwarding:
+            logger.debug('stop forwarding')
+            utils.kill_by_command(self.forwarding.command)
 
 
 def find_available_port():
@@ -346,13 +362,10 @@ def find_available_port():
 
 def ssh(account, vias=None, forwards=None, extras='', detach=False,
         tty=True, background=False, execute=True, cmd=''):
-    p = SSHPexpect(account, vias=vias, forwards=forwards, extras=extras,
+    p = SSHPexpect(account,
+                   vias=vias, forwards=forwards, extras=extras, detach=detach,
                    tty=tty, background=background, execute=execute, cmd=cmd)
-    ret = p.run()
-
-    if background and detach:
-        p.detach()
-    return ret
+    return p.run()
 
 
 def scp(account, targets, vias=None, with_forward=False):

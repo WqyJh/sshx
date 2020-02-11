@@ -426,10 +426,10 @@ class SpawnCommandTest(unittest.TestCase):
         )
         _assert_called_with(m, command)
 
-    @mock.patch('sshx.sshwrap.SSHPexpect.detach')
+    @mock.patch('sshx.sshwrap.SSHPexpect.daemonize', return_value=False)
     @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_forward(self, m, m_interact, m_detach):
+    def test_forward(self, m, m_interact, m_daemon):
         '''sshx forward <NAME1> -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,))
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
@@ -437,21 +437,20 @@ class SpawnCommandTest(unittest.TestCase):
             extras='-NT', forwards=f'-L {FORWARD1}', jump='', cmd='',
         )
         _assert_called_with(m, command)
-        m_detach.assert_not_called()
+        m_daemon.assert_not_called()
 
         '''sshx forward <NAME1> -b -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,), background=True)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-fNT', forwards=f'-L {FORWARD1}', jump='', cmd='',
+            extras='-NT', forwards=f'-L {FORWARD1}', jump='', cmd='',
         )
         _assert_called_with(m, command)
-        m_detach.assert_called()
+        m_daemon.assert_called_once()
 
-    @mock.patch('sshx.sshwrap.SSHPexpect.detach')
     @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_forward_via(self, m, m_interact, m_detach):
+    def test_forward_via(self, m, m_interact):
         '''sshx forward <NAME1> -v <NAME2> -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,), via=NAME2)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
@@ -459,7 +458,6 @@ class SpawnCommandTest(unittest.TestCase):
             extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER2}@{HOST2}:{PORT2}', cmd='',
         )
         _assert_called_with(m, command)
-        m_detach.assert_not_called()
 
         '''sshx forward <NAME1> -v <NAME2>,<NAME3> -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,), via=f'{NAME2},{NAME3}')
@@ -468,8 +466,6 @@ class SpawnCommandTest(unittest.TestCase):
             extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER2}@{HOST2}:{PORT2},{USER3}@{HOST3}:{PORT3}', cmd='',
         )
         _assert_called_with(m, command)
-        m_detach.assert_not_called()
-
 
     @mock.patch('pexpect.spawn', autospec=True)
     def test_scp(self, m):
@@ -518,7 +514,7 @@ class SpawnCommandTest(unittest.TestCase):
 
         command1 = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER4, host=HOST4, port=PORT4, identity=IDENTITY4,
-            extras='-fNT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump='', cmd='',
+            extras='-NT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump='', cmd='',
         )
 
         command2 = sshwrap._SCP_COMMAND_PASSWORD.format(
@@ -538,7 +534,7 @@ class SpawnCommandTest(unittest.TestCase):
 
         command1 = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER5, host=HOST5, port=PORT5, identity=IDENTITY4,
-            extras='-fNT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump=f'-J {USER4}@{HOST4}:{PORT4}', cmd='',
+            extras='-NT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump=f'-J {USER4}@{HOST4}:{PORT4}', cmd='',
         )
 
         command2 = sshwrap._SCP_COMMAND_PASSWORD.format(

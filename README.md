@@ -321,6 +321,8 @@ sshx --interval 30 --countmax 60 connect host1
 
 The default initialization would randomly generate a passphrase to encrypt the passwords, but the passphrase is also stored in config file. It's easy to decrypt the passwords if someone got the config file. That's the default security strategy, which assume you would protect your config file.
 
+The security option is to ask user to set a passphrase and ask for the passphrase from the prompt to decrypt the passwords. The passphrase won't be stored in config file while a hash of it will be stored to verify the passphrase.
+
 If you need more ensurance the security of the passwords even if the config file was revealed, please enable the security option.
 
 Enable security option during initialization:
