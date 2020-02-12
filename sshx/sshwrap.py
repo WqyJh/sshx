@@ -213,7 +213,7 @@ class SSHPexpect(object):
             # Set auto-adjust window size
             signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
-            r = p.expect([pexpect.TIMEOUT, '\S'])
+            r = p.expect('\S', timeout=None)
             if r == 0:
                 logger.error(c.MSG_CONNECTION_TIMED_OUT)
                 return STATUS_FAIL
