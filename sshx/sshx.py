@@ -285,11 +285,12 @@ class SortedGroup(click.Group):
               help='ServerAliveInterval for ssh_config.')
 @click.option('--countmax', type=click.IntRange(min=0), default=3,
               help='ServerAliveCountMax for ssh_config.')
+@click.option('--forever', is_flag=True, help='Keep ssh connection forever.')
 @click.option('--retry', type=RETRY_TYPE, default=0,
               help='Reconnect after connection closed, repeat for retry times. Supported values are "always" or non negative integer. If retry was enabled, --interval must be greater than 0.')
 @click.option('--retry-interval', type=click.IntRange(min=0), default=0,
               help='Sleep seconds before every retry.')
-def cli(debug, interval, countmax, retry, retry_interval):
+def cli(debug, interval, countmax, forever, retry, retry_interval):
     set_debug(debug)
 
     global RETRY, RETRY_INTERVAL
@@ -298,6 +299,12 @@ def cli(debug, interval, countmax, retry, retry_interval):
 
     sshwrap.ServerAliveInterval = interval
     sshwrap.ServerAliveCountMax = countmax
+
+    if forever:
+        # Set the alive time to 100 years, forever of life. :)
+        # More likely, the connection would be closed by network issue.
+        sshwrap.ServerAliveInterval = 60
+        sshwrap.ServerAliveCountMax = 60 * 24 * 365 * 100
 
 
 @cli.command('init', help='Initialize the account storage.')
