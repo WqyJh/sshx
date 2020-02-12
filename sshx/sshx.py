@@ -214,7 +214,7 @@ def handle_socks(name, via='', port=1080, background=False):
     # -D 1080           dynamic forwarding
     # -fNT -D 1080      ssh socks
     extras = f'-D {port}'
-    return handle_connect(name, via=via, extras=extras, detach=True,
+    return handle_connect(name, via=via, extras=extras, detach=background,
                           tty=False, background=background, execute=False)
 
 
