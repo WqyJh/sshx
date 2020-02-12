@@ -1,178 +1,286 @@
-import os
 import mock
+import uuid
 import shutil
 import unittest
+
+import lazy_object_proxy as lazy
+
+from mock import call
 
 from .. import cfg
 from .. import sshx
 from .. import utils
-from .. import const as c
+from .. import sshwrap
 from ..const import STATUS_SUCCESS, STATUS_FAIL
 
-
-class CfgTest(unittest.TestCase):
-    def test_set_config_dir(self):
-        config_dir = 'HEHE'
-        cfg.set_config_dir(config_dir)
-        self.assertEqual(config_dir, cfg.CONFIG_DIR)
-        self.assertEqual(os.path.join(
-            config_dir, cfg._ACCOUNT_FILE), cfg.ACCOUNT_FILE)
-
+NOIDENTITY = ''
 
 NAME1 = 'name1'
 HOST1 = 'host1'
 PORT1 = 'port1'
 USER1 = 'user1'
 PASSWORD1 = 'password1'
-IDENTITY1 = ''
+IDENTITY1 = NOIDENTITY
 
 NAME2 = 'name2'
+HOST2 = 'host2'
+PORT2 = 'port2'
+USER2 = 'user2'
 IDENTITY2 = 'identity2'
 PASSWORD2 = 'password2'
 
+NAME3 = 'name3'
+HOST3 = 'host3'
+PORT3 = 'port3'
+USER3 = 'user3'
+IDENTITY3 = 'identity3'
+PASSWORD3 = 'password3'
 
-class CommandTest(unittest.TestCase):
+NAME4 = 'name4'
+HOST4 = 'host4'
+PORT4 = 'port4'
+USER4 = 'user4'
+IDENTITY4 = NOIDENTITY
+PASSWORD4 = 'password4'
 
-    def test_init(self):
-        with mock.patch('sshx.sshx.handle_init') as m:
-            sshx.invoke(['init', ])
-            m.assert_called_with(force=False)
+NAME5 = 'name5'
+HOST5 = 'host5'
+PORT5 = 'port5'
+USER5 = 'user5'
+IDENTITY5 = NOIDENTITY
+PASSWORD5 = 'password5'
 
-            sshx.invoke(['init', '--force'])
-            m.assert_called_with(force=True)
+LOCALPORT = 'localport'
 
-    def test_add(self):
-        with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
-            with mock.patch('sshx.sshx.handle_add') as m:
-                sshx.invoke(['add', NAME1, '-H', HOST1, '-P', PORT1,
-                             '-u', USER1, '-p', '-i', IDENTITY1])
-                m_read_password.assert_called_once()
-                m.assert_called_with(NAME1, HOST1, port=PORT1, user=USER1, 
-                    password=PASSWORD1, identity=IDENTITY1, via='')
+DIR1 = 'dir1/'
+DIR2 = '/tmp'
 
-    def test_add2(self):
-        with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
-            with mock.patch('sshx.sshx.handle_add') as m:
-                sshx.invoke(['add', NAME1, '-l', '%s@%s:%s' % (USER1, HOST1, PORT1),
-                             '-p', '-i', IDENTITY1])
-                m_read_password.assert_called_once()
-                m.assert_called_with(NAME1, HOST1, port=PORT1, user=USER1, 
-                    password=PASSWORD1, identity=IDENTITY1, via='')
+FORWARD1 = ':3000:127.0.0.1:3222'
+COMMAND1 = 'ls -al'
 
-        with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
-            with mock.patch('sshx.sshx.handle_add') as m:
-                sshx.invoke(['add', NAME1, '-l', '%s@%s' % (USER1, HOST1),
-                             '-p', '-i', IDENTITY1])
-                m_read_password.assert_called_once()
-                m.assert_called_with(NAME1, HOST1, port=c.DEFAULT_PORT, user=USER1, 
-                    password=PASSWORD1, identity=IDENTITY1, via='')
-
-    def test_update(self):
-        with mock.patch('sshx.utils.read_password', return_value=PASSWORD2) as m_read_password:
-            with mock.patch('sshx.sshx.handle_update') as m:
-                sshx.invoke(['update', NAME1, '-H', HOST1])
-                m.assert_called_with(NAME1, update_fields={
-                    'host': HOST1,
-                })
-
-                sshx.invoke(['update', NAME1, '-H', HOST1, '-P',
-                             PORT1, '-u', USER1, '-p', '-i', IDENTITY1, '-v', NAME2])
-                m_read_password.assert_called_once()
-                m.assert_called_with(NAME1, update_fields={
-                    'host': HOST1,
-                    'port': PORT1,
-                    'user': USER1,
-                    'password': PASSWORD2,
-                    'identity': IDENTITY1,
-                    'via': NAME2,
-                })
-
-    def test_del(self):
-        with mock.patch('sshx.sshx.handle_del') as m:
-            sshx.invoke(['del', NAME1])
-            m.assert_called_with(NAME1)
-
-    def test_connect(self):
-        with mock.patch('sshx.sshx.handle_connect') as m:
-            sshx.invoke(['connect', NAME1])
-            m.assert_called_with(NAME1, via=None)
+TEST_DIR = '/tmp/sshx-test-tmp'
 
 
-class FunctionalTest(unittest.TestCase):
+def _reset():
+    '''
+    Reset the module status.
+    Only for unittests.
+    '''
+    cfg.config = lazy.Proxy(cfg.get_config)
+
+
+def _patch_sshx_handle(name):
+    fn = f'handle_{name}'
+    func = getattr(sshx, fn)
+
+    def _wrapped(*args, **kwargs):
+        _reset()
+        return func(*args, **kwargs)
+
+    setattr(_wrapped, 'original_func', func)
+    setattr(sshx, fn, _wrapped)
+
+
+def _restore_sshx_handle(name):
+    fn = f'handle_{name}'
+    func = getattr(sshx, fn)
+
+    original_func = getattr(func, 'original_func')
+    setattr(sshx, fn, original_func)
+
+
+def _patch_all_sshx_handle():
+    for a in dir(sshx):
+        if a.startswith('handle_'):
+            name = a.replace('handle_', '')
+            _patch_sshx_handle(name)
+
+
+def _restore_all_sshx_handle():
+    for a in dir(sshx):
+        if a.startswith('handle_'):
+            name = a.replace('handle_', '')
+            _restore_sshx_handle(name)
+
+
+def _setup_config_dir():
+    shutil.rmtree(TEST_DIR, ignore_errors=True)
+    cfg.set_config_dir(TEST_DIR)
+
+
+def _teardown_config_dir():
+    shutil.rmtree(TEST_DIR, ignore_errors=True)
+
+
+class InitTest(unittest.TestCase):
     def setUp(self):
-        cfg.set_config_dir('.tmp')
+        _patch_all_sshx_handle()
+        _setup_config_dir()
 
     def tearDown(self):
-        shutil.rmtree('.tmp')
+        _restore_all_sshx_handle()
+        _teardown_config_dir()
 
     def test_init(self):
         self.assertEqual(cfg.STATUS_UNINIT, cfg.check_init())
 
-        ret = sshx.handle_init(force=False)
+        ret = sshx.handle_init()
         self.assertEqual(STATUS_SUCCESS, ret)
         config = cfg.read_config()
         self.assertTrue(utils.is_str(config.phrase))
+        self.assertFalse(config.security)
         self.assertEqual(0, len(config.accounts))
+        self.assertIsNotNone(config.get_passphrase())
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
+        phrase = config.phrase
 
-        ret = sshx.handle_init(force=False)
+        ret = sshx.handle_init()
         self.assertEqual(STATUS_FAIL, ret)
         config = cfg.read_config()
         self.assertTrue(utils.is_str(config.phrase))
+        self.assertFalse(config.security)
         self.assertEqual(0, len(config.accounts))
+        self.assertIsNotNone(config.get_passphrase())
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
+        phrase = config.phrase
 
-        phrase1 = config.phrase
         ret = sshx.handle_init(force=True)
         self.assertEqual(STATUS_SUCCESS, ret)
         config = cfg.read_config()
-        self.assertNotEqual(phrase1, config.phrase)
+        self.assertFalse(config.security)
         self.assertEqual(0, len(config.accounts))
+        self.assertIsNotNone(config.get_passphrase())
+        self.assertNotEqual(phrase, config.phrase)
         self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
-    def test_add(self):
-        ret = sshx.handle_init()
+        # test security option
+        with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m_read_password:
+            ret = sshx.handle_init(force=True, security=True)
+            self.assertEqual(STATUS_SUCCESS, ret)
+            m_read_password.assert_called_once()
+            m_read_password.reset_mock()
+            config = cfg.read_config()
+            self.assertTrue(config.security)
+            self.assertEqual(0, len(config.accounts))
+            self.assertIsNotNone(config.get_passphrase())
+            self.assertEqual(PASSWORD1, config._phrase)
+            m_read_password.assert_called_once()
+            self.assertEqual(cfg.STATUS_INITED, cfg.check_init())
 
-        ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+    def test_config(self):
+        # Init without security
+        with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m:
+            ret = sshx.handle_init()
+            self.assertEqual(STATUS_SUCCESS, ret)
+            m.assert_not_called()
+
+            config = cfg.read_config()
+            self.assertFalse(config.security)
+            self.assertIsNotNone(config.get_passphrase())
+
+        # Enable security option
+        with mock.patch('sshx.utils.read_password', return_value=PASSWORD1) as m:
+            ret = sshx.handle_config(security=True)
+            self.assertEqual(STATUS_SUCCESS, ret)
+            m.assert_called()
+
+            config = cfg.read_config()
+            self.assertIsNotNone(config.get_passphrase())
+            self.assertEqual(PASSWORD1, config._phrase)
+
+        # Change passphrase
+        with mock.patch('sshx.utils.read_password', return_value=PASSWORD2) as m:
+            ret = sshx.handle_config(chphrase=True)
+            self.assertEqual(STATUS_SUCCESS, ret)
+            m.assert_called()
+
+            config = cfg.read_config()
+            self.assertTrue(config.security)
+            self.assertIsNotNone(config.get_passphrase())
+            self.assertEqual(PASSWORD2, config._phrase)
+
+        # Disable security option
+        with mock.patch('sshx.utils.random_str', return_value=PASSWORD1) as m:
+            ret = sshx.handle_config(security=False)
+            self.assertEqual(STATUS_SUCCESS, ret)
+            m.assert_called_once()
+
+            config = cfg.read_config()
+            self.assertFalse(config.security)
+            # config.phrase is randomly generate
+            self.assertIsNotNone(config.get_passphrase())
+            self.assertIsNone(config._phrase)
+            self.assertEqual(PASSWORD1, config.phrase)
+            m.assert_called_once()
+            phrase = config.phrase
+
+        # Change passphrase
+        with mock.patch('sshx.utils.random_str', return_value=PASSWORD2) as m:
+            ret = sshx.handle_config(chphrase=True)
+            self.assertEqual(STATUS_SUCCESS, ret)
+            m.assert_called_once()
+
+            config = cfg.read_config()
+            self.assertFalse(config.security)
+            self.assertIsNotNone(config.get_passphrase())
+            self.assertNotEqual(phrase, config.phrase)
+
+
+class FunctionalTest(unittest.TestCase):
+    def setUp(self):
+        _patch_all_sshx_handle()
+        _setup_config_dir()
+
+        ret = sshx.handle_init()
         self.assertEqual(STATUS_SUCCESS, ret)
-        self.assertEqual(1, cfg.accounts_num())
-        acc = cfg.read_account(NAME1)
+
+    def tearDown(self):
+        _restore_all_sshx_handle()
+        _teardown_config_dir()
+
+    def test_add(self):
+        ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
+        self.assertEqual(STATUS_SUCCESS, ret)
+        config = cfg.read_config()
+        self.assertEqual(1, len(config.accounts))
+
+        acc = config.get_account(NAME1, decrypt=True)
         self.assertEqual(HOST1, acc.host)
         self.assertEqual(PORT1, acc.port)
         self.assertEqual(USER1, acc.user)
         self.assertEqual(PASSWORD1, acc.password)
-        self.assertEqual(IDENTITY1, acc.identity)
+        self.assertEqual(NOIDENTITY, acc.identity)
 
         ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
-        self.assertEqual(2, cfg.accounts_num())
+        config = cfg.read_config()
+        self.assertEqual(2, len(config.accounts))
 
     def test_add_via(self):
         ret = sshx.handle_init()
 
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_FAIL, ret)
 
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1, via=NAME2,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_FAIL, ret)
 
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
-        self.assertEqual(STATUS_SUCCESS, ret)
-        ret = sshx.handle_add(NAME2, HOST1, port=PORT1, via=NAME1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
 
+        ret = sshx.handle_add(NAME2, HOST1, port=PORT1, via=NAME1,
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
+        self.assertEqual(STATUS_SUCCESS, ret)
 
     def test_update(self):
-        ret = sshx.handle_init()
-        self.assertEqual(STATUS_SUCCESS, ret)
+
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
 
         ret = sshx.handle_update(NAME1, update_fields={
@@ -180,8 +288,9 @@ class FunctionalTest(unittest.TestCase):
             'password': PASSWORD2,
         })
         self.assertEqual(STATUS_SUCCESS, ret)
-        self.assertEqual(1, cfg.accounts_num())
-        account = cfg.read_account(NAME1)
+        config = cfg.read_config()
+        self.assertEqual(1, len(config.accounts))
+        account = config.get_account(NAME1, decrypt=True)
         self.assertEqual(IDENTITY2, account.identity)
         self.assertEqual(PASSWORD2, account.password)
 
@@ -189,26 +298,27 @@ class FunctionalTest(unittest.TestCase):
             'identity': IDENTITY2,
         })
         self.assertEqual(STATUS_FAIL, ret)
-        self.assertEqual(1, cfg.accounts_num())
+        config = cfg.read_config()
+        self.assertEqual(1, len(config.accounts))
 
         ret = sshx.handle_update(NAME1, update_fields={
             'name': NAME2,
         })
         self.assertEqual(STATUS_SUCCESS, ret)
-        self.assertEqual(1, cfg.accounts_num())
-        account = cfg.read_account(NAME1)
+        config = cfg.read_config()
+        self.assertEqual(1, len(config.accounts))
+        account = config.get_account(NAME1)
         self.assertIsNone(account)
-        account = cfg.read_account(NAME2)
+        account = config.get_account(NAME2)
         self.assertEqual(IDENTITY2, account.identity)
 
     def test_del(self):
-        ret = sshx.handle_init()
-        self.assertEqual(STATUS_SUCCESS, ret)
         ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
+
         ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY1)
+                              user=USER1, password=PASSWORD1, identity=NOIDENTITY)
         self.assertEqual(STATUS_SUCCESS, ret)
 
         config = cfg.read_config()
@@ -224,30 +334,246 @@ class FunctionalTest(unittest.TestCase):
         self.assertEqual(0, len(config.accounts))
         self.assertIsNone(cfg.find_by_name(config.accounts, NAME2))
 
-    def test_connect(self):
+
+def _assert_called_with(m, command):
+    m.assert_called_with(utils.format_command(command))
+
+
+def _assert_called_with_n(self, m, commands):
+    calls = m.call_args_list
+    self.assertEqual(len(calls), len(commands))
+    for c, command in zip(m.call_args_list, commands):
+        self.assertEqual(c, call(utils.format_command(command)))
+
+
+class SpawnCommandTest(unittest.TestCase):
+    def setUp(self):
+        _patch_all_sshx_handle()
+        _setup_config_dir()
+
         ret = sshx.handle_init()
         self.assertEqual(STATUS_SUCCESS, ret)
-        ret = sshx.handle_add(NAME1, HOST1, port=PORT1,
+
+        # Account NAME1
+        ret = sshx.handle_add(NAME1, HOST1,
+                              port=PORT1,
                               user=USER1, password=PASSWORD1, identity=IDENTITY1)
         self.assertEqual(STATUS_SUCCESS, ret)
-        ret = sshx.handle_add(NAME2, HOST1, port=PORT1,
-                              user=USER1, password=PASSWORD1, identity=IDENTITY2)
+
+        # Account NAME2
+        ret = sshx.handle_add(NAME2, HOST2,
+                              port=PORT2,
+                              user=USER2, password=PASSWORD2, identity=IDENTITY2)
         self.assertEqual(STATUS_SUCCESS, ret)
 
-        with mock.patch('sshx.sshwrap.ssh') as m:
-            sshx.handle_connect(NAME1)
-            m.assert_called()
-            # assert_called_with() failed,
-            # maybe because the bug of mock.
-            # m.assert_called_with(cfg.Account(
-            #     NAME1, user=USER1, host=HOST1, port=PORT1, password=PASSWORD1, identity=IDENTITY1))
+        # Account NAME3
+        ret = sshx.handle_add(NAME3, HOST3,
+                              port=PORT3,
+                              user=USER3, password=PASSWORD3, identity=IDENTITY3)
+        self.assertEqual(STATUS_SUCCESS, ret)
 
-            sshx.handle_connect(NAME2)
-            m.assert_called()
-            # assert_called_with() failed,
-            # maybe because the bug of mock.
-            # m.assert_called_with(cfg.Account(
-            #     NAME2, user=USER1, host=HOST1, port=PORT1, password=PASSWORD1, identity=IDENTITY2))
+        # Account NAME4
+        ret = sshx.handle_add(NAME4, HOST4,
+                              port=PORT4,
+                              user=USER4, password=PASSWORD4, identity=IDENTITY4)
+        self.assertEqual(STATUS_SUCCESS, ret)
+
+        # Account NAME5
+        ret = sshx.handle_add(NAME5, HOST5,
+                              port=PORT5,
+                              user=USER5, password=PASSWORD5, identity=IDENTITY5)
+        self.assertEqual(STATUS_SUCCESS, ret)
+
+    def tearDown(self):
+        _restore_all_sshx_handle()
+        _teardown_config_dir()
+
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_connect(self, m):
+        '''sshx connect <NAME1>'''
+        sshx.handle_connect(NAME1)
+        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='', forwards='', jump='', cmd='',
+        )
+        _assert_called_with(m, command)
+
+        '''sshx connect <NAME2>'''
+        sshx.handle_connect(NAME2)
+        command = sshwrap._SSH_COMMAND_IDENTITY.format(
+            user=USER2, host=HOST2, port=PORT2, identity=IDENTITY2,
+            extras='', forwards='', jump='', cmd='',
+        )
+        _assert_called_with(m, command)
+
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_connect_via(self, m):
+        '''sshx connect <NAME1> -v <NAME4>'''
+        sshx.handle_connect(NAME1, via=NAME4)
+        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='', forwards='', cmd='',
+            jump=f'-J {USER4}@{HOST4}:{PORT4}'
+        )
+        _assert_called_with(m, command)
+
+        '''sshx connect <NAME1> -v <NAME4>,<NAME5>'''
+        sshx.handle_connect(NAME2, via=f'{NAME4},{NAME5}')
+        command = sshwrap._SSH_COMMAND_IDENTITY.format(
+            user=USER2, host=HOST2, port=PORT2, identity=IDENTITY2,
+            extras='', forwards='', cmd='',
+            jump=f'-J {USER4}@{HOST4}:{PORT4},{USER5}@{HOST5}:{PORT5}'
+        )
+        _assert_called_with(m, command)
+
+    @mock.patch('sshx.sshwrap.SSHPexpect.daemonize', return_value=False)
+    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_forward(self, m, m_interact, m_daemon):
+        '''sshx forward <NAME1> -f <FORWARD1>'''
+        sshx.handle_forward(NAME1, maps=(FORWARD1,))
+        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='-NT', forwards=f'-L {FORWARD1}', jump='', cmd='',
+        )
+        _assert_called_with(m, command)
+        m_daemon.assert_not_called()
+
+        '''sshx forward <NAME1> -b -f <FORWARD1>'''
+        sshx.handle_forward(NAME1, maps=(FORWARD1,), background=True)
+        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='-NT', forwards=f'-L {FORWARD1}', jump='', cmd='',
+        )
+        _assert_called_with(m, command)
+        m_daemon.assert_called_once()
+
+    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_forward_via(self, m, m_interact):
+        '''sshx forward <NAME1> -v <NAME2> -f <FORWARD1>'''
+        sshx.handle_forward(NAME1, maps=(FORWARD1,), via=NAME2)
+        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER2}@{HOST2}:{PORT2}', cmd='',
+        )
+        _assert_called_with(m, command)
+
+        '''sshx forward <NAME1> -v <NAME2>,<NAME3> -f <FORWARD1>'''
+        sshx.handle_forward(NAME1, maps=(FORWARD1,), via=f'{NAME2},{NAME3}')
+        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER2}@{HOST2}:{PORT2},{USER3}@{HOST3}:{PORT3}', cmd='',
+        )
+        _assert_called_with(m, command)
+
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_scp(self, m):
+        '''sshx scp <DIR1> <NAME1>:<DIR2>'''
+        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}')
+        command = sshwrap._SCP_COMMAND_PASSWORD.format(
+            port=PORT1, jump='',
+            src=DIR1, dst=f'{USER1}@{HOST1}:{DIR2}',
+        )
+        _assert_called_with(m, command)
+
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_scp_via(self, m):
+        '''sshx scp -v <NAME2> <DIR1> <NAME1>:<DIR2>'''
+        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=NAME2)
+        command = sshwrap._SCP_COMMAND_PASSWORD.format(
+            port=PORT1, jump=f'-oProxyJump={USER2}@{HOST2}:{PORT2}',
+            src=DIR1, dst=f'{USER1}@{HOST1}:{DIR2}',
+        )
+        _assert_called_with(m, command)
+
+        '''sshx scp -v <NAME2>,<NAME3> <DIR1> <NAME1>:<DIR2>'''
+        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=f'{NAME2},{NAME3}')
+        command = sshwrap._SCP_COMMAND_PASSWORD.format(
+            port=PORT1, jump=f'-oProxyJump={USER2}@{HOST2}:{PORT2},{USER3}@{HOST3}:{PORT3}',
+            src=DIR1, dst=f'{USER1}@{HOST1}:{DIR2}',
+        )
+        _assert_called_with(m, command)
+
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_scp2(self, m):
+        '''sshx scp2 <DIR1> <NAME1>:<DIR2>'''
+        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', with_forward=True)
+        command = sshwrap._SCP_COMMAND_PASSWORD.format(
+            port=PORT1, jump='',
+            src=DIR1, dst=f'{USER1}@{HOST1}:{DIR2}',
+        )
+        _assert_called_with(m, command)
+
+    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
+    @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_scp2_via(self, m, m_findport, m_interact):
+        '''sshx scp2 -v <NAME4> <DIR1> <NAME1>:<DIR2>'''
+        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=NAME4, with_forward=True)
+
+        command1 = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER4, host=HOST4, port=PORT4, identity=IDENTITY4,
+            extras='-NT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump='', cmd='',
+        )
+
+        command2 = sshwrap._SCP_COMMAND_PASSWORD.format(
+            port=LOCALPORT, jump='',
+            src=DIR1, dst=f'{USER1}@{sshwrap.LOCALHOST}:{DIR2}',
+        )
+
+        _assert_called_with_n(self, m, (command1, command2))
+
+    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
+    @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_scp2_via2(self, m, m_findport, m_interact):
+        '''sshx scp2 -v <NAME4>,<NAME5> <DIR1> <NAME1>:<DIR2>'''
+        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}',
+                        via=f'{NAME4},{NAME5}', with_forward=True)
+
+        command1 = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER5, host=HOST5, port=PORT5, identity=IDENTITY4,
+            extras='-NT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump=f'-J {USER4}@{HOST4}:{PORT4}', cmd='',
+        )
+
+        command2 = sshwrap._SCP_COMMAND_PASSWORD.format(
+            port=LOCALPORT, jump='',
+            src=DIR1, dst=f'{USER1}@{sshwrap.LOCALHOST}:{DIR2}',
+        )
+
+        _assert_called_with_n(self, m, (command1, command2))
+
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_socks(self, m):
+        '''sshx socks <NAME1>'''
+        sshx.handle_socks(NAME1)
+        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='-D 1080 -NT', forwards='', jump='', cmd='',
+        )
+        _assert_called_with(m, command)
+
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_exec(self, m):
+        '''sshx exec <NAME1> -- <COMMAND1>'''
+        sshx.handle_exec(NAME1, cmd=COMMAND1.split())
+        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='-t', forwards='', jump='', cmd=COMMAND1,
+        )
+        _assert_called_with(m, command)
+
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_exec_via(self, m):
+        '''sshx exec <NAME1> -v <NAME4>,<NAME5> -- <COMMAND1>'''
+        sshx.handle_exec(NAME1, cmd=COMMAND1.split(), via=f'{NAME4},{NAME5}')
+        command = sshwrap._SSH_COMMAND_PASSWORD.format(
+            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
+            extras='-t', forwards='', cmd=COMMAND1,
+            jump=f'-J {USER4}@{HOST4}:{PORT4},{USER5}@{HOST5}:{PORT5}'
+        )
+        _assert_called_with(m, command)
 
 
 if __name__ == '__main__':

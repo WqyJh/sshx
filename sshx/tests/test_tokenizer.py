@@ -22,3 +22,9 @@ class TokenizerTest(unittest.TestCase):
             t = tokenizer.encrypt(s, k)
             self.assertNotEqual(s, t)
             self.assertEqual(s, tokenizer.decrypt(t, k))
+
+    def test_hash(self):
+        a = 'hello world'
+        b = 'hello world'
+        self.assertNotEqual(a, tokenizer.hash(a))
+        self.assertEqual(tokenizer.hash(a), tokenizer.hash(b))
