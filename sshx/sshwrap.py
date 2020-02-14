@@ -7,11 +7,11 @@ import fcntl
 import threading
 import subprocess
 import paramiko
+import pexpect
 
 
 from . import const as c
-from . import utils, logger
-from .cfg import read_account
+from . import utils, logger, cfg
 from .sshx_forward import Forwards
 from .const import STATUS_SUCCESS, STATUS_FAIL
 
@@ -47,29 +47,34 @@ _SSH_COMMAND_PASSWORD = 'ssh \
 -o PreferredAuthentications=password \
 -o StrictHostKeyChecking=no \
 -o UserKnownHostsFile=/dev/null \
-{extras} {jump} {forwards} {user}@{host} -p {port} {exec}'
-_SSH_COMMAND_IDENTITY = 'ssh {extras} {jump} {forwards} {user}@{host} -p {port} -i {identity} {exec}'
+-oExitOnForwardFailure=yes \
+{extras} {forwards} {jump} -p {port} {user}@{host} {cmd}'
+_SSH_COMMAND_IDENTITY = 'ssh -oExitOnForwardFailure=yes \
+-i {identity} {extras} {forwards} {jump} -p {port} {user}@{host} {cmd}'
 _SSH_DEST = '{user}@{host}:{port}'
 _SCP_COMMAND_PASSWORD = 'scp -r \
 -oPreferredAuthentications=password \
 -oStrictHostKeyChecking=no \
 -oUserKnownHostsFile=/dev/null \
--P {port} {jump} {src} {dst}'
-_SCP_COMMAND_IDENTITY = 'scp -r -P {port} {jump} {src} {dst} -i {identity}'
+-oExitOnForwardFailure=yes \
+{jump} -P {port} {src} {dst}'
+_SCP_COMMAND_IDENTITY = 'scp -oExitOnForwardFailure=yes \
+-r -i {identity} {jump} -P {port} {src} {dst}'
 
 
 def find_vias(vias):
+    '''Find accounts by vias.'''
     _vias = vias.split(',')
-    return [read_account(v) for v in _vias]
+    return [cfg.config.get_account(v, decrypt=True) for v in _vias]
 
 
 def find_jumps(account):
+    '''Find accounts by account.via.'''
     jumps = []
-
-    a = read_account(account.via)
+    a = cfg.config.get_account(account.via, decrypt=True)
     while a:
         jumps.append(a)
-        a = read_account(a.via)
+        a = cfg.config.get_account(a.via, decrypt=True)
     return jumps
 
 
@@ -77,7 +82,7 @@ def compile_jumps(account, vias=None, prefix='-J '):
     jumps = find_vias(vias) if vias else find_jumps(account)
 
     if jumps:
-        accounts = list(reversed(jumps))
+        accounts = list(jumps)
         dests = [_SSH_DEST.format(
             user=a.user, host=a.host, port=a.port) for a in accounts]
         jump = prefix + ','.join(dests)
@@ -89,142 +94,260 @@ def compile_jumps(account, vias=None, prefix='-J '):
     return jump, passwords
 
 
-def ssh_pexpect2(account, vias=None, forwards=None, extras='', interact=True, background=False, exec=''):
-    import pexpect
-    jump, passwords = compile_jumps(account, vias=vias)
+class SSHPexpect(object):
+    def __init__(self, account, vias=None, forwards=None, extras='', tty=True, background=False, execute=True, cmd='', detach=False):
+        self.account = account
+        self.vias = vias
+        self.forwards = forwards
+        self.extras = extras
+        self.execute = execute
+        self.cmd = cmd
 
-    # interactive/background/foreground config
-    if not interact:
-        '''
-        -f              background
-        -N              do not execute remote command
-        -T              do not allocate pty
-        -fNT            non interactive
-        '''
-        extras += (' -fNT' if background else ' -NT')
+        # detach    background  self.detach self.background
+        # True      True        True        False
+        # True      False       False       False
+        # False     True        False       True
+        # False     False       False       False
+        self.detach = background and detach
+        self.background = False if self.detach else background
+        self.tty = False if self.detach else tty
 
-    # keep alive config
-    if ServerAliveInterval > 0:
-        extras += f' -o ServerAliveInterval={ServerAliveInterval} -o ServerAliveCountMax={ServerAliveCountMax}'
+        self.thread = None
 
-    # port forwarding config
-    _forwards = forwards.compile() if forwards else ''
+        self.p = None
 
-    # compile command
-    if account.identity:
-        command = _SSH_COMMAND_IDENTITY.format(jump=jump,
-                                               forwards=_forwards,
-                                               user=account.user,
-                                               host=account.host,
-                                               port=account.port, identity=account.identity,
-                                               extras=extras,
-                                               exec=exec)
-    else:
-        command = _SSH_COMMAND_PASSWORD.format(jump=jump,
-                                               forwards=_forwards,
-                                               user=account.user,
-                                               host=account.host,
-                                               port=account.port,
-                                               extras=extras,
-                                               exec=exec)
+    def compile_flags(self):
+        _flags_maps = [
+            {True: '', False: 'N'},
+            {True: '', False: 'T'},
+        ]
+        _flags = [self.execute, self.tty]
+        flags = ''.join([m[f] for m, f in zip(_flags_maps, _flags)])
+        return f' -{flags}' if flags else ''
 
-    # connect
-    try:
-        logger.debug(command)
+    def compile_command(self):
+        self.jump, self.passwords = compile_jumps(self.account, vias=self.vias)
 
-        p = pexpect.spawn(command)
+        if not self.account.identity:
+            self.passwords.append(self.account.password)
 
-        # Passwords for jump hosts
-        if passwords:
-            for password in passwords:
-                r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+        self.extras += self.compile_flags()
+
+        # keep alive config
+        if ServerAliveInterval > 0:
+            self.extras += f' -o ServerAliveInterval={ServerAliveInterval} -o ServerAliveCountMax={ServerAliveCountMax}'
+
+        # port forwarding config
+        _forwards = self.forwards.compile() if self.forwards else ''
+
+        account = self.account
+        if account.identity:
+            command = _SSH_COMMAND_IDENTITY.format(
+                jump=self.jump,
+                forwards=_forwards,
+                user=account.user,
+                host=account.host,
+                port=account.port,
+                identity=account.identity,
+                extras=self.extras,
+                cmd=self.cmd)
+        else:
+            command = _SSH_COMMAND_PASSWORD.format(
+                jump=self.jump,
+                forwards=_forwards,
+                user=account.user,
+                host=account.host,
+                port=account.port,
+                extras=self.extras,
+                cmd=self.cmd)
+
+        command = utils.format_command(command)
+        return command
+
+    def auth(self):
+        if self.passwords:
+            for password in self.passwords:
+                r = self.p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
                 if r == 0:
                     logger.error(c.MSG_CONNECTION_TIMED_OUT)
-                    return STATUS_FAIL
-                p.sendline(password)
+                    return False
+                self.p.sendline(password)
+        return True
 
-        # Password for dest host
-        if not account.identity:
-            r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
-            if r == 0:
-                logger.error(c.MSG_CONNECTION_TIMED_OUT)
+    def drain_child_buffer(self):
+        '''Read all data from child to make it eof.'''
+        try:
+            data = self.p.read_nonblocking(size=100, timeout=1)
+            while data:
+                data = self.p.read_nonblocking(size=100, timeout=1)
+        except (pexpect.EOF, pexpect.TIMEOUT):
+            logger.debug('drain buffer to EOF')
+
+    def daemonize(self):
+        '''Detach the process.
+        Return True in parent process, False in child.
+        '''
+        import os
+        pid = os.fork()
+        if pid == 0:
+            # child
+            logger.debug('Run in child daemon.')
+
+            # import sys
+            # fd = os.open(os.devnull, os.O_RDWR | os.O_CREAT)
+            # os.dup2(fd, sys.stdin.fileno())
+            # os.dup2(fd, sys.stdout.fileno())
+            # os.dup2(fd, sys.stderr.fileno())
+            return False
+        return True
+
+    def interactive(self):
+        p = self.p
+        if self.background:
+            if self.execute:
+                p.interact(escape_character=None)
+            else:
+                self.drain_child_buffer()
+        else:
+            set_winsize(p)  # Adjust window size
+            # Set auto-adjust window size
+            signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
+
+            # r = p.expect([pexpect.TIMEOUT, '\S'])
+            # if r == 1:
+            #     p.write_to_stdout(p.after)
+
+            # find the first non-empty character
+            # block forever if not found
+            p.expect('\S', timeout=None)
+            p.write_to_stdout(p.after)
+
+            p.interact(escape_character=None)
+        return STATUS_SUCCESS
+
+    def run(self):
+        self.command = self.compile_command()
+
+        logger.debug(self.command)
+        self.start_process()
+
+    def start_process(self):
+        if self.detach:
+            if self.daemonize():
+                return STATUS_SUCCESS
+
+        try:
+            self.p = pexpect.spawn(self.command)
+
+            if not self.auth():
+                logger.error(c.MSG_AUTH_FAILED)
                 return STATUS_FAIL
-            p.sendline(account.password)
 
-        set_winsize(p)  # Adjust window size
-        # Set auto-adjust window size
-        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
-
-        r = p.expect([pexpect.TIMEOUT, '\S'])
-        if r == 0:
-            logger.error(c.MSG_CONNECTION_TIMED_OUT)
+            return self.interactive()
+        except Exception as e:
+            logger.error(c.MSG_CONNECTION_ERROR)
+            logger.debug(e)
             return STATUS_FAIL
 
-        p.write_to_stdout(p.after)
-        p.interact()
 
-    except Exception as e:
-        logger.error(c.MSG_CONNECTION_ERROR)
-        logger.debug(e)
-        return STATUS_FAIL
-    finally:
-        p.close()
+class SCPPexpect(SSHPexpect):
+    def __init__(self, account, targets, vias):
+        self.account = account
+        self.targets = targets
+        self.vias = vias
+
+        self.background = False
+        self.detach = False
+
+        self.p = None
+
+    def compile_command(self):
+        account = self.account
+        self.jump, self.passwords = compile_jumps(
+            account, vias=self.vias, prefix='-oProxyJump=')
+
+        if not self.account.identity:
+            self.passwords.append(self.account.password)
+
+        src, dst = self.targets.compile()
+
+        if account.identity:
+            command = _SCP_COMMAND_IDENTITY.format(
+                jump=self.jump,
+                port=account.port,
+                src=src,
+                dst=dst,
+                identity=account.identity)
+        else:
+            command = _SCP_COMMAND_PASSWORD.format(
+                jump=self.jump,
+                port=account.port,
+                src=src,
+                dst=dst)
+        command = utils.format_command(command)
+        return command
 
 
-def scp_pexpect(account, targets):
-    import pexpect
+class SCPPexpect2(SCPPexpect):
+    def __init__(self, account, targets, vias):
+        super().__init__(account, targets, vias)
+        self.forwarding = None
 
-    jump, passwords = compile_jumps(account, prefix='-oProxyJump=')
+    def create_forwarding(self):
+        account = self.account
+        jumps = find_vias(self.vias) if self.vias else find_jumps(account)
 
-    src, dst = targets.src.compile(), targets.dst.compile()
+        if jumps:
+            jump1 = jumps.pop()
+            self.host = LOCALHOST
+            self.port = find_available_port()
+            maps = f'{self.host}:{self.port}:{account.host}:{account.port}'
+            forwards = Forwards(maps, '')
 
-    if account.identity:
-        command = _SCP_COMMAND_IDENTITY.format(jump=jump,
-                                               port=account.port,
-                                               src=src,
-                                               dst=dst,
-                                               identity=account.identity)
-    else:
-        command = _SCP_COMMAND_PASSWORD.format(jump=jump,
-                                               port=account.port,
-                                               src=src,
-                                               dst=dst)
-    try:
-        logger.debug(command)
+            vias = ','.join([a.name for a in jumps])
+            self.forwarding = SSHPexpect(
+                jump1, vias=vias, forwards=forwards,
+                tty=False, background=True, execute=False)
 
-        p = pexpect.spawn(command)
+    def compile_command(self):
+        account = self.account
+        self.port = account.port
+        self.host = account.host
+        self.passwords = [account.password]
 
-        # Passwords for jump hosts
-        if passwords:
-            for password in passwords:
-                r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
-                if r == 0:
-                    logger.error(c.MSG_CONNECTION_TIMED_OUT)
-                    return STATUS_FAIL
-                p.sendline(password)
+        self.create_forwarding()
 
-        # Password for dest host
-        if not account.identity:
-            r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
-            if r == 0:
-                logger.error(c.MSG_CONNECTION_TIMED_OUT)
-                return STATUS_FAIL
-            p.sendline(account.password)
+        src, dst = self.targets.compile(src_host=self.host, dst_host=self.host)
 
-        set_winsize(p)  # Adjust window size
-        # Set auto-adjust window size
-        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
+        if account.identity:
+            command = _SCP_COMMAND_IDENTITY.format(
+                jump='',
+                port=self.port,
+                src=src,
+                dst=dst,
+                identity=account.identity)
+        else:
+            command = _SCP_COMMAND_PASSWORD.format(
+                jump='',
+                port=self.port,
+                src=src,
+                dst=dst)
+        command = utils.format_command(command)
+        return command
 
-        r = p.expect([pexpect.TIMEOUT, '\S'])
-        if r == 0:
-            logger.error(c.MSG_CONNECTION_TIMED_OUT)
-            return STATUS_FAIL
-        p.write_to_stdout(p.after)
-        p.interact()
-    except Exception as e:
-        logger.error(c.MSG_CONNECTION_ERROR)
-        logger.debug(e)
-        return STATUS_FAIL
+    def run(self):
+        self.command = self.compile_command()
+
+        if self.forwarding:
+            logger.debug('start forwarding')
+            self.forwarding.run()
+
+        logger.debug(self.command)
+        self.start_process()
+
+        if self.forwarding:
+            logger.debug('stop forwarding')
+            utils.kill_by_command(self.forwarding.command)
 
 
 def find_available_port():
@@ -240,86 +363,15 @@ def find_available_port():
             return port
 
 
-def scp_pexpect2(account, targets, jumps):
-    import pexpect
-
-    jump1 = jumps.pop(0)
-    port = find_available_port()
-    maps = '%s:%s:%s:%s' % (LOCALHOST, port, account.host, account.port)
-    forwards = Forwards(maps, '')
-
-    # Establish port forwarding
-    vias = ','.join([a.name for a in reversed(jumps)])
-    ret = ssh_pexpect2(jump1, vias=vias, forwards=forwards, interact=False)
-    if ret == STATUS_FAIL:
-        return ret
-
-    forwarding = ret['p']
-
-    src, dst = targets.src.compile(host=LOCALHOST), \
-        targets.dst.compile(host=LOCALHOST)
-
-    if account.identity:
-        command = _SCP_COMMAND_IDENTITY.format(jump='',
-                                               port=port,
-                                               src=src,
-                                               dst=dst,
-                                               identity=account.identity)
-    else:
-        command = _SCP_COMMAND_PASSWORD.format(jump='',
-                                               port=port,
-                                               src=src,
-                                               dst=dst)
-    try:
-        logger.debug(command)
-
-        p = pexpect.spawn(command)
-
-        # Password for dest host
-        if not account.identity:
-            r = p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
-            if r == 0:
-                logger.error(c.MSG_CONNECTION_TIMED_OUT)
-                return STATUS_FAIL
-            p.sendline(account.password)
-
-        set_winsize(p)  # Adjust window size
-        # Set auto-adjust window size
-        signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
-
-        r = p.expect([pexpect.TIMEOUT, '\S'])
-        if r == 0:
-            logger.error(c.MSG_CONNECTION_TIMED_OUT)
-            return STATUS_FAIL
-        p.write_to_stdout(p.after)
-        p.interact()
-    except Exception as e:
-        logger.error(c.MSG_CONNECTION_ERROR)
-        logger.debug(e)
-        return STATUS_FAIL
+def ssh(account, vias=None, forwards=None, extras='', detach=False,
+        tty=True, background=False, execute=True, cmd=''):
+    p = SSHPexpect(account,
+                   vias=vias, forwards=forwards, extras=extras, detach=detach,
+                   tty=tty, background=background, execute=execute, cmd=cmd)
+    return p.run()
 
 
-def has_command(command):
-    try:
-        subprocess.check_call(command,
-                              stdin=subprocess.PIPE,
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE)
-    except FileNotFoundError:
-        return False
-    except Exception:
-        pass
-    return True
-
-
-def ssh(account, vias=None, forwards=None, extras='', interact=True, background=False, exec=''):
-    return ssh_pexpect2(account, vias=vias, forwards=forwards, extras=extras,
-                        interact=interact, background=background, exec=exec)
-
-
-def scp(account, targets, vias=None):
-    jumps = find_vias(vias) if vias else find_jumps(account)
-
-    if jumps:
-        return scp_pexpect2(account, targets, jumps)
-    return scp_pexpect(account, targets)
+def scp(account, targets, vias=None, with_forward=False):
+    klass = SCPPexpect2 if with_forward else SCPPexpect
+    p = klass(account, targets, vias)
+    return p.run()

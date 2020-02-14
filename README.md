@@ -19,7 +19,7 @@ sshx is a lightweight wrapper for ssh/scp command, which has the following featu
 
 Supported platform: Python 3 on **Linux**, **macOS**, **WSL/cygwin/msys2 on Windows)**.
 
-**Attention: **
+**Attention:**
 - Native Windows support was removed.
 - Python 2 support was removed.
 
@@ -80,6 +80,11 @@ $ sshx init
 $ tree ~/.sshx
 ~/.sshx
 └── .accounts
+```
+
+Force initialization (**Dangerous**): delete the previous configuration and perform initialization.
+```bash
+sshx init --force
 ```
 
 ### Add accounts
@@ -310,6 +315,32 @@ sends a keepalive probe to server after no data was transfered for 30s and after
 times the connection would be closed.
 ```bash
 sshx --interval 30 --countmax 60 connect host1
+```
+
+### Security option
+
+The default initialization would randomly generate a passphrase to encrypt the passwords, but the passphrase is also stored in config file. It's easy to decrypt the passwords if someone got the config file. That's the default security strategy, which assume you would protect your config file.
+
+The security option is to ask user to set a passphrase and ask for the passphrase from the prompt to decrypt the passwords. The passphrase won't be stored in config file while a hash of it will be stored to verify the passphrase.
+
+If you need more ensurance the security of the passwords even if the config file was revealed, please enable the security option.
+
+Enable security option during initialization:
+```bash
+sshx init --security
+```
+It will ask you the passphrase from the prompt.
+
+Enable security option for an existing config:
+```bash
+sshx config --security-on
+```
+
+After you enable the security option, `sshx` would ask the passphrase from the prompt every time you access the passwords of the account, such as `sshx show -p` and `sshx connect`.
+
+You can change the passphrase with the following command:
+```bash
+sshx config --chphrase
 ```
 
 
