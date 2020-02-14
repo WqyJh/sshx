@@ -205,7 +205,7 @@ class SSHPexpect(object):
         p = self.p
         if self.background:
             if self.execute:
-                p.interact()
+                p.interact(escape_character=None)
             else:
                 self.drain_child_buffer()
         else:
@@ -213,10 +213,13 @@ class SSHPexpect(object):
             # Set auto-adjust window size
             signal.signal(signal.SIGWINCH, sigwinch_passthrough(p))
 
-            r = p.expect('\S', timeout=None)
-            if r == 0:
-                logger.error(c.MSG_CONNECTION_TIMED_OUT)
-                return STATUS_FAIL
+            # r = p.expect([pexpect.TIMEOUT, '\S'])
+            # if r == 1:
+            #     p.write_to_stdout(p.after)
+
+            # find the first non-empty character
+            # block forever if not found
+            p.expect('\S', timeout=None)
             p.write_to_stdout(p.after)
 
             p.interact(escape_character=None)

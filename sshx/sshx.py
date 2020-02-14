@@ -232,7 +232,7 @@ def handle_scp(src, dst, via='', with_forward=False):
         logger.error('Copy between remote targets are not supported yet.')
         return STATUS_FAIL
 
-    config = cfg.read_config()
+    config = cfg.config
 
     name = targets.src.host or targets.dst.host
     account = config.get_account(name, decrypt=True)
@@ -449,7 +449,7 @@ def command_exec(name, cmd, via, tty):
 
 
 @cli.resultcallback()
-def process_result(result, debug, interval, countmax, retry, retry_interval):
+def process_result(result, debug, interval, countmax, forever, retry, retry_interval):
     '''The result is used as the exit status code.'''
     return result
 
