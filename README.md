@@ -10,6 +10,7 @@ sshx is a lightweight wrapper for ssh/scp command, which has the following featu
 - Connect to your account with a short command, without typing password
 - Enable jump host for your connection
 - Create ssh forwarding with a short command, without typing password
+- Create socks5 proxy from ssh dynamic port forwarding
 - Enable jump host for your port forwarding
 - Copy files from/to your account with a short command, without typing password
 - Enable jump host for your scp connection
@@ -17,7 +18,7 @@ sshx is a lightweight wrapper for ssh/scp command, which has the following featu
 
 ## Installation
 
-Supported platform: Python 3 on **Linux**, **macOS**, **WSL/cygwin/msys2 on Windows)**.
+Supported platform: **Python 3** on **Linux**, **macOS**, **WSL/cygwin/msys2 for Windows)**.
 
 **Attention:**
 - Native Windows support was removed.
@@ -81,6 +82,7 @@ $ tree ~/.sshx
 ~/.sshx
 └── .accounts
 ```
+You can set environment variable `SSHX_HOME` to customize the location of configurations, the default value if `~/.sshx`。
 
 Force initialization (**Dangerous**): delete the previous configuration and perform initialization.
 ```bash
@@ -189,8 +191,14 @@ via field will be ignored.
 `sshx socks` creates socks5 proxies.
 
 ```bash
-sshx socks host1 # create socks proxy on port 1080
-sshx socks host1 -p 1081 # create socks proxy on port 1081
+# create socks proxy on port 1080
+sshx socks host1
+# create socks proxy on 0.0.0.0:1081
+sshx socks host1 -p 0.0.0.0:1081
+# create socks proxy with jump host
+sshx socks host1 -v host2
+# create socks proxy on background
+sshx socks host1 -b
 ```
 
 Why create socks5 proxies with ssh?
@@ -237,7 +245,7 @@ sshx forward host1 -r :8000:192.168.99.9:8888
 
 ### Copy files
 
-`sshx scp` copy files to/from servers.
+`sshx scp/scp2` copy files to/from servers.
 
 ```bash
 # Copy local files to host1
@@ -253,6 +261,8 @@ sshx scp <src> host1:<dst> -v host2
 # and using host3 as host2's jump host.
 sshx scp host1:<src> <dst> -v host2,host3
 ```
+
+`sshx scp2` has same usage with `sshx scp`, but different underlying. On some platform with old version of openssh-clients (including `ssh`, `scp`), `-J` or `-oProxyJump` may not be supported, `sshx scp` doesn't work. `sshx scp2` works on both old version and new version of openssh-clients, because it creates port forwarding with jump hosts, and call `scp` without `ProxyJump` option.
 
 TODO:
 ```bash
@@ -280,15 +290,16 @@ The arguments after `--` is the commandline to be executed remotely.
 ### Global Arguments
 
 ```bash
-  -d, --debug           run in debug mode
-  --interval INTERVAL   ServerAliveInterval for ssh_config.
-  --countmax COUNTMAX   ServerAliveCountMax for ssh_config
-  --retry RETRY         Reconnect after connection closed, repeat for retry
-                        times. Supported values are "always" or non negative
-                        integer. If retry was enabled, --interval must be
-                        greater than 0.
-  --retry-interval RETRY_INTERVAL
-                        Sleep seconds before every retry
+  -d, --debug
+  --interval INTEGER RANGE        ServerAliveInterval for ssh_config.
+  --countmax INTEGER RANGE        ServerAliveCountMax for ssh_config.
+  --forever                       Keep ssh connection forever.
+  --retry RETRY                   Reconnect after connection closed, repeat
+                                  for retry times. Supported values are
+                                  "always" or non negative integer. If retry
+                                  was enabled, --interval must be greater than
+                                  0.
+  --retry-interval INTEGER RANGE  Sleep seconds before every retry.
 ```
 
 `--retry` and `--retry-interval` can only be used for `connect`, `forward`, `socks` and `exec` commands.
@@ -312,10 +323,12 @@ sshx --interval 1 --countmax 1 --retry 5 socks host1
 
 Create a ssh connection and set the ServerAlive options. The following options make the ssh client
 sends a keepalive probe to server after no data was transfered for 30s and after probing for 60
-times the connection would be closed.
+times the connection would be closed (idle for 1800s).
 ```bash
 sshx --interval 30 --countmax 60 connect host1
 ```
+
+`--forever` option is an alias for `--interval 60 --countmax 52560000`, which means the ssh connection would be closed after idle for 100 years (long enough :). You can also set a value longer than `--forever`.
 
 ### Security option
 
