@@ -210,10 +210,10 @@ def handle_forward(name, maps=None, rmaps=None, via='', background=False):
                           tty=False, background=background, execute=False)
 
 
-def handle_socks(name, via='', port=1080, background=False):
+def handle_socks(name, via='', bind=1080, background=False):
     # -D 1080           dynamic forwarding
     # -fNT -D 1080      ssh socks
-    extras = f'-D {port}'
+    extras = f'-D {bind}'
     return handle_connect(name, via=via, extras=extras, detach=background,
                           tty=False, background=background, execute=False)
 
@@ -416,11 +416,13 @@ def command_forward(name, via, forward, rforward, background):
 
 @cli.command('socks', help='Establish a socks5 server using ssh.')
 @click.argument('name')
-@click.option('-p', '--port', type=click.IntRange(min=1, max=65535), default=1080)
+@click.option('-p', '--port', type=click.IntRange(min=1, max=65535), help='Alias of --bind 127.0.0.1:<port>. (Deprecated)')
+@click.option('--bind', help='Bind address like [host:]<port>.', default='127.0.0.1:1080')
 @click.option('-v', '--via')
 @click.option('-b', '--background', is_flag=True, help='Run in background.')
-def command_socks(name, port, via, background):
-    return handle_socks(name, via=via, port=port, background=background)
+def command_socks(name, port, bind, via, background):
+    bind = port or bind
+    return handle_socks(name, via=via, bind=bind, background=background)
 
 
 @cli.command('scp', help='Copy files with specified accounts.')

@@ -191,10 +191,10 @@ via field will be ignored.
 `sshx socks` creates socks5 proxies.
 
 ```bash
-# create socks proxy on port 1080
+# create socks proxy on 127.0.0.1:1080
 sshx socks host1
 # create socks proxy on 0.0.0.0:1081
-sshx socks host1 -p 0.0.0.0:1081
+sshx socks host1 --bind 0.0.0.0:1081
 # create socks proxy with jump host
 sshx socks host1 -v host2
 # create socks proxy on background
