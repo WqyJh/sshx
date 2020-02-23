@@ -1,3 +1,4 @@
+from . import global_test_init
 import mock
 import unittest
 
@@ -141,16 +142,19 @@ class CommandTest(unittest.TestCase):
     def test_socks(self):
         with mock.patch('sshx.sshx.handle_socks') as m:
             sshx.invoke(['socks', NAME1])
-            m.assert_called_with(NAME1, via=None, bind='127.0.0.1:1080', background=False)
+            m.assert_called_with(
+                NAME1, via=None, bind='127.0.0.1:1080', background=False)
 
             sshx.invoke(['socks', NAME1, '-p', 1081])
             m.assert_called_with(NAME1, via=None, bind=1081, background=False)
 
             sshx.invoke(['socks', NAME1, '-b'])
-            m.assert_called_with(NAME1, via=None, bind='127.0.0.1:1080', background=True)
+            m.assert_called_with(
+                NAME1, via=None, bind='127.0.0.1:1080', background=True)
 
             sshx.invoke(['socks', NAME1, '--bind', '0.0.0.0:1080'])
-            m.assert_called_with(NAME1, via=None, bind='0.0.0.0:1080', background=False)
+            m.assert_called_with(
+                NAME1, via=None, bind='0.0.0.0:1080', background=False)
 
     def test_scp(self):
         with mock.patch('sshx.sshx.handle_scp') as m:
@@ -161,3 +165,9 @@ class CommandTest(unittest.TestCase):
         with mock.patch('sshx.sshx.handle_exec') as m:
             sshx.invoke(['exec', NAME1, '--tty', '--', 'ls', '-al'])
             m.assert_called_with(NAME1, via=None, tty=True, cmd=('ls', '-al'))
+
+
+global_test_init()
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,3 +1,4 @@
+from . import global_test_init
 import unittest
 
 from sshx import tokenizer
@@ -7,6 +8,11 @@ class TokenizerTest(unittest.TestCase):
     def test_encrypt_decrypt(self):
         s = 'hello'
         k = 'key'
+        t = tokenizer.encrypt(s, k)
+        self.assertNotEqual(s, t)
+        self.assertEqual(s, tokenizer.decrypt(t, k))
+
+        s = ''
         t = tokenizer.encrypt(s, k)
         self.assertNotEqual(s, t)
         self.assertEqual(s, tokenizer.decrypt(t, k))
@@ -28,3 +34,9 @@ class TokenizerTest(unittest.TestCase):
         b = 'hello world'
         self.assertNotEqual(a, tokenizer.hash(a))
         self.assertEqual(tokenizer.hash(a), tokenizer.hash(b))
+
+
+global_test_init()
+
+if __name__ == '__main__':
+    unittest.main()

@@ -76,8 +76,18 @@ def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password=''
         logger.error('Account exists!')
         return STATUS_FAIL
 
+    passphrase = ''
+    if identity:
+        if not utils.sshkey_exists(identity):
+            logger.error('Identity file not found!')
+            return STATUS_FAIL
+
+        # set identity passphrase
+        if utils.sshkey_has_passphrase(identity):
+            passphrase = utils.read_passphrase()
+
     account = cfg.Account(
-        name=name, host=host, port=port, via=via,
+        name=name, host=host, port=port, via=via, passphrase=passphrase,
         user=user, password=password, identity=identity,
     )
     if config.add_account(account):
@@ -95,13 +105,16 @@ def handle_update(name, update_fields):
         logger.error('Nothing to update')
         return STATUS_FAIL
 
-    decrypt = True if 'password' in update_fields else False
+    # need to decrypt when updating sensitive data
+    _sensitive = ['password', 'identity']
+    decrypt = any([f in update_fields for f in _sensitive])
 
     account = config.get_account(name, decrypt=decrypt)
     if not account:
         logger.error(c.MSG_ACCOUNT_NOT_FOUND)
         return STATUS_FAIL
 
+    # rename
     newname = update_fields.pop('name', None)
     if newname:
         if config.rename_account(account, newname):
@@ -110,6 +123,7 @@ def handle_update(name, update_fields):
             logger.info(f"Failed to rename '{name}' to '{newname}'")
             return STATUS_FAIL
 
+    # update via
     via = update_fields.get('via', None)
     if via:
         if name == via:
@@ -119,6 +133,26 @@ def handle_update(name, update_fields):
         if not config.get_account(via):
             logger.error(f"Jump account '{via}' doesn't exist.")
             return STATUS_FAIL
+
+    # need to update passphrase when updating identity
+    identity = update_fields.get('identity', None)
+    if identity:
+        if not utils.sshkey_exists(identity):
+            logger.error('Identity file not found!')
+            return STATUS_FAIL
+
+        # set identity passphrase
+        if utils.sshkey_has_passphrase(identity):
+            if not utils.sshkey_check_passphrase(identity, account.passphrase):
+                update_fields['passphrase'] = utils.read_passphrase()
+        else:
+            update_fields['passphrase'] = ''
+    elif identity == '':
+        # unset identity
+        update_fields['passphrase'] = ''
+        if not account.password and not 'password' in update_fields:
+            logger.info(f'Identity was unset but no password was set, please set an password for account {account.name}')
+            update_fields['password'] = utils.read_password()
 
     account.update(update_fields)
     cfg.write_config(config)

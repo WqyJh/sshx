@@ -128,6 +128,8 @@ class Config(object):
         if phrase:
             if self.encrypted[account.name]:
                 account.password = tokenizer.decrypt(account.password, phrase)
+                if account.passphrase:
+                    account.passphrase = tokenizer.decrypt(account.passphrase, phrase)
                 self.encrypted[account.name] = False
 
     def decrypt_accounts(self):
@@ -139,6 +141,8 @@ class Config(object):
         if phrase:
             if not self.encrypted[account.name]:
                 account.password = tokenizer.encrypt(account.password, phrase)
+                if account.passphrase:
+                    account.passphrase = tokenizer.encrypt(account.passphrase, phrase)
                 self.encrypted[account.name] = True
 
     def encrypt_accounts(self):

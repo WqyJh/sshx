@@ -1,12 +1,10 @@
 import os
-import sys
 import json
 import string
 import random
 
 from getpass import getpass
 
-from . import tokenizer
 from . import const as c
 from . import logger
 
@@ -25,7 +23,7 @@ def is_str(s):
 
 
 def json_dump(obj):
-    return json.dumps(obj, cls=ClsDictEncoder)
+    return json.dumps(obj, cls=ClsDictEncoder, indent=4)
 
 
 def json_load(s):
@@ -74,3 +72,30 @@ def kill_by_command(command):
                     logger.debug(f'process killed: {command}')
                 else:
                     logger.debug(f'process terminated: {command}')
+
+
+def sshkey_exists(identity):
+    return os.path.isfile(identity)
+
+
+def sshkey_has_passphrase(identity):
+    with open(identity, 'r') as f:
+        return 'Proc-Type: 4,ENCRYPTED' in f.read()
+
+
+def sshkey_check_passphrase(identity, passphrase):
+    if not sshkey_has_passphrase(identity):
+        return passphrase == ''
+
+    import pexpect
+    cmd = f'env SSH_ASKPASS=/bin/false ssh-keygen -y -f {identity}'
+
+    logger.debug(cmd)
+
+    p = pexpect.spawn(cmd)
+    r = p.expect([pexpect.EOF, 'passphrase:'])
+    if r == 0:
+        return False
+    p.sendline(passphrase)
+    p.wait()
+    return p.status == 0
