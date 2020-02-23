@@ -23,7 +23,7 @@ def is_str(s):
 
 
 def json_dump(obj):
-    return json.dumps(obj, cls=ClsDictEncoder)
+    return json.dumps(obj, cls=ClsDictEncoder, indent=4)
 
 
 def json_load(s):
@@ -84,14 +84,11 @@ def sshkey_has_passphrase(identity):
 
 
 def sshkey_check_passphrase(identity, passphrase):
-    import pexpect
-    # throws FileNotFoundError if ssh-keygen not found
-    # cmd = ['env', 'SSH_ASKPASS=/bin/false',
-    #        'ssh-keygen', '-y', '-f', identity]
-    cmd = f'env SSH_ASKPASS=/bin/false ssh-keygen -y -f {identity}'
-
     if not sshkey_has_passphrase(identity):
         return passphrase == ''
+
+    import pexpect
+    cmd = f'env SSH_ASKPASS=/bin/false ssh-keygen -y -f {identity}'
 
     logger.debug(cmd)
 
@@ -100,7 +97,5 @@ def sshkey_check_passphrase(identity, passphrase):
     if r == 0:
         return False
     p.sendline(passphrase)
-    # p.expect(pexpect.EOF)
-    p.interact()
-    p.close()
+    p.wait()
     return p.status == 0

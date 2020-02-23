@@ -11,6 +11,12 @@ PASSPHRASE2 = '12345678'
 
 
 class UtilsTest(unittest.TestCase):
+    def test_sshkey_exists(self):
+        self.assertFalse(utils.sshkey_exists(''))
+        self.assertFalse(utils.sshkey_exists('abc'))
+        self.assertTrue(utils.sshkey_exists(IDENTITY1))
+        self.assertTrue(utils.sshkey_exists(IDENTITY2))
+
     def test_sshkey_has_passphrase(self):
         self.assertFalse(utils.sshkey_has_passphrase(IDENTITY1))
         self.assertTrue(utils.sshkey_has_passphrase(IDENTITY2))

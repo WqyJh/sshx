@@ -11,6 +11,11 @@ class TokenizerTest(unittest.TestCase):
         self.assertNotEqual(s, t)
         self.assertEqual(s, tokenizer.decrypt(t, k))
 
+        s = ''
+        t = tokenizer.encrypt(s, k)
+        self.assertNotEqual(s, t)
+        self.assertEqual(s, tokenizer.decrypt(t, k))
+
     def test_encrypt_decrypt_multiple_times(self):
         data = {
             'hello1': 'key1',
