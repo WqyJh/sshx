@@ -11,13 +11,15 @@ DEF_VIA = ''
 
 class Account(object):
     def __init__(self, name, user=DEF_USER, host=DEF_HOST, port=DEF_PORT,
-                 password=DEF_PASSWORD, identity=DEF_IDENTITY, via=DEF_VIA):
+                 password=DEF_PASSWORD, identity=DEF_IDENTITY, via=DEF_VIA,
+                 passphrase=''):
         self.name = name
         self.user = user
         self.host = host
         self.port = port
         self.password = password
         self.identity = identity
+        self.passphrase = passphrase
         self.via = via
 
     def update(self, update):
@@ -48,6 +50,23 @@ class Account(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def to_ssh_config(self, via=None):
+        '''
+        Host host1
+            User root
+            HostName 172.17.0.2
+            IdentityFile /tmp/id_rsa
+            ProxyCommand ssh -F {config} -W %h:%p host2
+        '''
+
+        c = f'''Host {self.name}\n\tUser {self.user}\n\tHostName {self.host}\n'''
+        if self.identity:
+            c += f'''\tIdentityFile {self.identity}\n'''
+        via = via or self.via
+        if via:
+            c += f'''\tProxyCommand ssh -F {{config}} -W %h:%p {via}'''
+        return c
 
 
 def find_by_name(accounts, name):

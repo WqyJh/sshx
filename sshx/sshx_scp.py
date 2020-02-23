@@ -6,6 +6,7 @@ _SCP_TARGET = '{user}@{host}:{path}'
 
 class Target(object):
     def __init__(self, target):
+        self.raw = target
         r = target.split(':')
         if len(r) == 1:
             self.host, self.path = '', r[0]

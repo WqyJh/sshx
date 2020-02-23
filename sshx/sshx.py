@@ -76,8 +76,17 @@ def handle_add(name, host, port=c.DEFAULT_PORT, user=c.DEFAULT_USER, password=''
         logger.error('Account exists!')
         return STATUS_FAIL
 
+    passphrase = ''
+    if identity:
+        if not utils.sshkey_exists(identity):
+            logger.error('Identity file not found!')
+            return STATUS_FAIL
+
+        if utils.sshkey_has_passphrase(identity):
+            passphrase = utils.read_passphrase()
+
     account = cfg.Account(
-        name=name, host=host, port=port, via=via,
+        name=name, host=host, port=port, via=via, passphrase=passphrase,
         user=user, password=password, identity=identity,
     )
     if config.add_account(account):
@@ -119,6 +128,16 @@ def handle_update(name, update_fields):
         if not config.get_account(via):
             logger.error(f"Jump account '{via}' doesn't exist.")
             return STATUS_FAIL
+
+    # need to update passphrase when updating identity
+    identity = update_fields.get('identity', None)
+    if identity:
+        if not utils.sshkey_exists(identity):
+            logger.error('Identity file not found!')
+            return STATUS_FAIL
+
+        if not utils.sshkey_check_passphrase(identity, account.passphrase):
+            update_fields['passphrase'] = utils.read_passphrase()
 
     account.update(update_fields)
     cfg.write_config(config)

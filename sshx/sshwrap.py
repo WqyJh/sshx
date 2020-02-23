@@ -1,12 +1,10 @@
+import os
 import sys
-import time
+import uuid
 import struct
 import termios
 import signal
 import fcntl
-import threading
-import subprocess
-import paramiko
 import pexpect
 
 
@@ -45,53 +43,108 @@ def sigwinch_passthrough(p):
 
 _SSH_COMMAND_PASSWORD = 'ssh \
 -o PreferredAuthentications=password \
+-o LogLevel=ERROR \
 -o StrictHostKeyChecking=no \
 -o UserKnownHostsFile=/dev/null \
 -oExitOnForwardFailure=yes \
 {extras} {forwards} {jump} -p {port} {user}@{host} {cmd}'
-_SSH_COMMAND_IDENTITY = 'ssh -oExitOnForwardFailure=yes \
+_SSH_COMMAND_IDENTITY = 'ssh \
+-o LogLevel=ERROR \
+-o StrictHostKeyChecking=no \
+-o UserKnownHostsFile=/dev/null \
+-oExitOnForwardFailure=yes \
 -i {identity} {extras} {forwards} {jump} -p {port} {user}@{host} {cmd}'
+_SSH_CONFIG_GLOBAL = '''Host *
+\tLogLevel ERROR
+\tStrictHostKeyChecking no
+\tUserKnownHostsFile /dev/null
+\tExitOnForwardFailure yes
+'''
+_SSH_COMMAND_CONFIG = 'ssh {extras} {forwards} {name} {cmd}'
 _SSH_DEST = '{user}@{host}:{port}'
 _SCP_COMMAND_PASSWORD = 'scp -r \
 -oPreferredAuthentications=password \
+-o LogLevel=ERROR \
 -oStrictHostKeyChecking=no \
 -oUserKnownHostsFile=/dev/null \
 -oExitOnForwardFailure=yes \
 {jump} -P {port} {src} {dst}'
-_SCP_COMMAND_IDENTITY = 'scp -oExitOnForwardFailure=yes \
--r -i {identity} {jump} -P {port} {src} {dst}'
+_SCP_COMMAND_IDENTITY = 'scp -r \
+-o LogLevel=ERROR \
+-oStrictHostKeyChecking=no \
+-oUserKnownHostsFile=/dev/null \
+-oExitOnForwardFailure=yes \
+-i {identity} {jump} -P {port} {src} {dst}'
+_SCP_COMMAND_CONFIG = 'scp {extras} {src} {dst}'
 
 
-def find_vias(vias):
-    '''Find accounts by vias.'''
-    _vias = vias.split(',')
-    return [cfg.config.get_account(v, decrypt=True) for v in _vias]
+class AccountChain(object):
+    def __init__(self, account, vias=None):
+        self.chain = self._get_chain(account, vias=vias)
+        self.config_file = None
 
+    def __del__(self):
+        if self.config_file:
+            try:
+                logger.debug(f'deleting {self.config_file}')
+                os.remove(self.config_file)
+            except OSError as e:
+                logger.warning(
+                    f'error occurred while deleting {self.config_file}:\n{e}')
 
-def find_jumps(account):
-    '''Find accounts by account.via.'''
-    jumps = []
-    a = cfg.config.get_account(account.via, decrypt=True)
-    while a:
-        jumps.append(a)
-        a = cfg.config.get_account(a.via, decrypt=True)
-    return jumps
+    def _get_chain(self, account, vias=None):
+        if vias:
+            chain = [cfg.config.get_account(v, decrypt=True)
+                     for v in vias.split(',')]
+            chain.append(account)
 
+            for i in range(1, len(chain)):
+                chain[i].via = chain[i - 1].name
+        else:
+            chain = []
+            a = cfg.config.get_account(account.via, decrypt=True)
+            while a:
+                chain.append(a)
+                a = cfg.config.get_account(a.via, decrypt=True)
+            chain.append(account)
 
-def compile_jumps(account, vias=None, prefix='-J '):
-    jumps = find_vias(vias) if vias else find_jumps(account)
+        return chain
 
-    if jumps:
-        accounts = list(jumps)
-        dests = [_SSH_DEST.format(
-            user=a.user, host=a.host, port=a.port) for a in accounts]
-        jump = prefix + ','.join(dests)
-        passwords = [a.password for a in accounts]
-    else:
-        jump = ''
+    def get_jump(self, prefix='-J '):
+        dests = [_SSH_DEST.format(user=a.user, host=a.host, port=a.port)
+                 for a in self.chain[:-1]]
+        jump = (prefix + ','.join(dests)) if dests else ''
+        return jump
+
+    def get_passwords(self):
         passwords = []
+        for a in self.chain:
+            if not a.identity:
+                passwords.append(a.password)
+            elif a.passphrase:
+                passwords.append(a.passphrase)
+        return passwords
 
-    return jump, passwords
+    def has_identity(self):
+        return any(map(lambda a: a.identity, self.chain))
+
+    def need_config(self):
+        if len(self.chain) > 1:
+            for a in self.chain[:-1]:
+                if a.identity:
+                    return True
+        return False
+
+    def get_config(self):
+        config_list = [_SSH_CONFIG_GLOBAL] + \
+            [a.to_ssh_config() for a in self.chain]
+        config = '\n'.join(config_list)
+        self.config_file = os.path.join(cfg.CONFIG_DIR, str(uuid.uuid4()))
+        with open(self.config_file, 'w') as f:
+            config = config.format(config=self.config_file)
+            logger.debug(config)
+            f.write(config)
+        return self.config_file
 
 
 class SSHPexpect(object):
@@ -126,10 +179,9 @@ class SSHPexpect(object):
         return f' -{flags}' if flags else ''
 
     def compile_command(self):
-        self.jump, self.passwords = compile_jumps(self.account, vias=self.vias)
-
-        if not self.account.identity:
-            self.passwords.append(self.account.password)
+        self.chain = AccountChain(self.account, vias=self.vias)
+        self.jump = self.chain.get_jump()
+        self.passwords = self.chain.get_passwords()
 
         self.extras += self.compile_flags()
 
@@ -138,13 +190,21 @@ class SSHPexpect(object):
             self.extras += f' -o ServerAliveInterval={ServerAliveInterval} -o ServerAliveCountMax={ServerAliveCountMax}'
 
         # port forwarding config
-        _forwards = self.forwards.compile() if self.forwards else ''
+        self._forwards = self.forwards.compile() if self.forwards else ''
 
+        if self.chain.need_config():
+            command = self.compile_config_command()
+        else:
+            command = self.compile_pure_command()
+        command = utils.format_command(command)
+        return command
+
+    def compile_pure_command(self):
         account = self.account
         if account.identity:
             command = _SSH_COMMAND_IDENTITY.format(
                 jump=self.jump,
-                forwards=_forwards,
+                forwards=self._forwards,
                 user=account.user,
                 host=account.host,
                 port=account.port,
@@ -154,24 +214,46 @@ class SSHPexpect(object):
         else:
             command = _SSH_COMMAND_PASSWORD.format(
                 jump=self.jump,
-                forwards=_forwards,
+                forwards=self._forwards,
                 user=account.user,
                 host=account.host,
                 port=account.port,
                 extras=self.extras,
                 cmd=self.cmd)
+        return command
 
-        command = utils.format_command(command)
+    def compile_config_command(self):
+        config = self.chain.get_config()
+        self.extras += f' -F {config}'
+
+        command = _SSH_COMMAND_CONFIG.format(
+            forwards=self._forwards,
+            extras=self.extras,
+            name=self.account.name,
+            cmd=self.cmd)
         return command
 
     def auth(self):
         if self.passwords:
-            for password in self.passwords:
-                r = self.p.expect([pexpect.TIMEOUT, '[p|P]assword:'])
+            it = iter(self.passwords)
+            password = next(it)
+            while True:
+                r = self.p.expect([
+                    pexpect.TIMEOUT,
+                    "(?i)are you sure you want to continue connecting",
+                    '[p|P]assword:', r'passphrase for key[\s\S]+?:'])
                 if r == 0:
                     logger.error(c.MSG_CONNECTION_TIMED_OUT)
                     return False
+                if r == 1:
+                    self.p.sendline('yes')
+                    continue
+
                 self.p.sendline(password)
+                try:
+                    password = next(it)
+                except StopIteration:
+                    break
         return True
 
     def drain_child_buffer(self):
@@ -255,6 +337,7 @@ class SCPPexpect(SSHPexpect):
         self.account = account
         self.targets = targets
         self.vias = vias
+        self.extras = ''
 
         self.background = False
         self.detach = False
@@ -262,13 +345,19 @@ class SCPPexpect(SSHPexpect):
         self.p = None
 
     def compile_command(self):
+        self.chain = AccountChain(self.account, vias=self.vias)
+        self.jump = self.chain.get_jump(prefix='-oProxyJump=')
+        self.passwords = self.chain.get_passwords()
+
+        if self.chain.need_config():
+            command = self.compile_config_command()
+        else:
+            command = self.compile_pure_command()
+        command = utils.format_command(command)
+        return command
+
+    def compile_pure_command(self):
         account = self.account
-        self.jump, self.passwords = compile_jumps(
-            account, vias=self.vias, prefix='-oProxyJump=')
-
-        if not self.account.identity:
-            self.passwords.append(self.account.password)
-
         src, dst = self.targets.compile()
 
         if account.identity:
@@ -284,18 +373,38 @@ class SCPPexpect(SSHPexpect):
                 port=account.port,
                 src=src,
                 dst=dst)
-        command = utils.format_command(command)
+        return command
+
+    def compile_config_command(self):
+        src = self.targets.src.raw
+        dst = self.targets.dst.raw
+        config = self.chain.get_config()
+        self.extras += f' -F {config}'
+
+        command = _SCP_COMMAND_CONFIG.format(
+            extras=self.extras,
+            name=self.account.name,
+            src=src, dst=dst)
         return command
 
 
 class SCPPexpect2(SCPPexpect):
+    '''scp -v a,b,c src d:dst
+    Split to two steps:
+    step 1.
+    forward -v a,b c -f lhost:lport:d.host:d.port
+    step 2.
+    scp -P lport src d.user@lhost:dst
+    '''
+
     def __init__(self, account, targets, vias):
         super().__init__(account, targets, vias)
         self.forwarding = None
 
     def create_forwarding(self):
         account = self.account
-        jumps = find_vias(self.vias) if self.vias else find_jumps(account)
+        self.chain = AccountChain(self.account, vias=self.vias)
+        jumps = self.chain.chain[:-1]
 
         if jumps:
             jump1 = jumps.pop()
@@ -311,11 +420,15 @@ class SCPPexpect2(SCPPexpect):
 
     def compile_command(self):
         account = self.account
-        self.port = account.port
         self.host = account.host
-        self.passwords = [account.password]
+        self.port = account.port
 
+        # May change self.host to LOCALHOST if has jumps
         self.create_forwarding()
+
+        account.via = ''
+        self.chain = AccountChain(account)
+        self.passwords = self.chain.get_passwords()
 
         src, dst = self.targets.compile(src_host=self.host, dst_host=self.host)
 
