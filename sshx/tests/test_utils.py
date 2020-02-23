@@ -1,3 +1,4 @@
+from . import global_test_init
 import os
 import mock
 import unittest
@@ -29,5 +30,7 @@ class UtilsTest(unittest.TestCase):
         self.assertFalse(utils.sshkey_check_passphrase(IDENTITY2, ''))
 
 
-if __name__ == "__main__":
+global_test_init()
+
+if __name__ == '__main__':
     unittest.main()

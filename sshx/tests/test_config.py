@@ -1,3 +1,4 @@
+from . import global_test_init
 import os
 import unittest
 
@@ -18,6 +19,8 @@ class CfgTest(unittest.TestCase):
         self.assertEqual(os.path.join(
             config_dir, cfg._ACCOUNT_FILE), cfg.ACCOUNT_FILE)
 
+
+global_test_init()
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,3 +1,4 @@
+from . import global_test_init
 import os
 import mock
 import shutil
@@ -637,6 +638,8 @@ class SpawnCommandTest(unittest.TestCase):
         )
         _assert_called_with(m, command)
 
+
+global_test_init()
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,3 +1,4 @@
+from . import global_test_init
 import unittest
 from sshx.account import *
 
@@ -38,6 +39,8 @@ class AccountTest(unittest.TestCase):
         account = Account(name='a1', host='h1')
         self.assertEqual(self.ACCOUNT1, account)
 
+
+global_test_init()
 
 if __name__ == '__main__':
     unittest.main()
