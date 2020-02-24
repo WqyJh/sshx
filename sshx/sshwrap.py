@@ -1,6 +1,7 @@
 import os
 import sys
 import uuid
+import time
 import struct
 import termios
 import signal
@@ -171,8 +172,6 @@ class SSHPexpect(object):
         self.background = False if self.detach else background
         self.tty = False if self.detach else tty
 
-        self.thread = None
-
         self.p = None
 
     def compile_flags(self):
@@ -313,17 +312,32 @@ class SSHPexpect(object):
             p.interact(escape_character=None)
         return STATUS_SUCCESS
 
-    def run(self):
-        self.command = self.compile_command()
-
-        logger.debug(self.command)
-        self.start_process()
-
-    def start_process(self):
+    def run(self, retry=0, retry_interval=5):
         if self.detach:
             if self.daemonize():
                 return STATUS_SUCCESS
 
+        self.command = self.compile_command()
+        logger.debug(self.command)
+
+        _try = 0
+        while True:
+            ret = self.start_process()
+            if ret == STATUS_SUCCESS:
+                return STATUS_SUCCESS
+
+            if retry == 'always' or retry > 0:
+                if retry == 'always' or _try < retry:
+                    _try += 1
+                    logger.info(
+                        f'failed, sleep {retry_interval}s before retry.')
+                    time.sleep(retry_interval)
+                    logger.info(f'retry: {_try}')
+                    continue
+                logger.error('still failed, please check the network.')
+            break
+
+    def start_process(self):
         try:
             self.p = pexpect.spawn(self.command)
 
@@ -462,7 +476,7 @@ class SCPPexpect2(SCPPexpect):
             self.forwarding.run()
 
         logger.debug(self.command)
-        self.start_process()
+        return self.start_process()
 
         if self.forwarding:
             logger.debug('stop forwarding')
@@ -483,11 +497,12 @@ def find_available_port():
 
 
 def ssh(account, vias=None, forwards=None, extras='', detach=False,
-        tty=True, background=False, execute=True, cmd=''):
+        tty=True, background=False, execute=True, cmd='',
+        retry=0, retry_interval=5):
     p = SSHPexpect(account,
                    vias=vias, forwards=forwards, extras=extras, detach=detach,
                    tty=tty, background=background, execute=execute, cmd=cmd)
-    return p.run()
+    return p.run(retry=retry, retry_interval=retry_interval)
 
 
 def scp(account, targets, vias=None, with_forward=False):
