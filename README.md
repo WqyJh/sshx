@@ -7,14 +7,19 @@
 
 
 sshx is a lightweight wrapper for ssh/scp command, which has the following features:
-- Remember your ssh account
-- Connect to your account with a short command, without typing password
-- Enable jump host for your connection
-- Create ssh forwarding with a short command, without typing password
-- Create socks5 proxy from ssh dynamic port forwarding
-- Enable jump host for your port forwarding
-- Copy files from/to your account with a short command, without typing password
-- Enable jump host for your scp connection
+
+- Remember your ssh accounts safely.
+- Connect to your account without typing password.
+- Set jump hosts for your connection.
+- Create ssh port forwardings without typing password.
+- Create socks5 proxy by ssh dynamic port forwarding.
+- Enable jump hosts for your port forwardings.
+- Copy files from/to your account without typing password.
+- Enable jump hosts for your scp connection.
+- Execute remote command without typing password.
+- Enable jump hosts for executing command.
+- Install ssh public keys to remote server.
+- Enable jump hosts for public key installation.
 
 Read full documentation on [ReadTheDocs](https://sshx.readthedocs.io/en/latest/).
 
