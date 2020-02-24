@@ -257,6 +257,17 @@ def handle_scp(src, dst, via='', with_forward=False):
     return sshwrap.scp(account, targets, vias=via, with_forward=with_forward)
 
 
+def handle_copyid(name, identity, via=''):
+    config = cfg.config
+    account = config.get_account(name, decrypt=True)
+    ret = sshwrap.ssh_copy_id(account, identity, vias=via)
+    if ret == STATUS_SUCCESS:
+        logger.info('Succeeded')
+    else:
+        logger.error('Failed')
+    return ret
+
+
 class RetryType(click.ParamType):
     name = "retry"
 
@@ -461,6 +472,14 @@ def command_scp2(src, dst, via):
 @click.option('--tty', is_flag=True)
 def command_exec(name, cmd, via, tty):
     return handle_exec(name, via=via, tty=tty, cmd=cmd)
+
+
+@cli.command('copyid', help='Copy ssh publickey (*.pub) to remote host.')
+@click.argument('identity')
+@click.argument('name')
+@click.option('-v', '--via', help='Jump hosts.')
+def command_copyid(identity, name, via):
+    return handle_copyid(name, identity, via=via)
 
 
 @cli.resultcallback()

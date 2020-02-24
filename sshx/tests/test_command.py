@@ -166,6 +166,11 @@ class CommandTest(unittest.TestCase):
             sshx.invoke(['exec', NAME1, '--tty', '--', 'ls', '-al'])
             m.assert_called_with(NAME1, via=None, tty=True, cmd=('ls', '-al'))
 
+    def test_copyid(self):
+        with mock.patch('sshx.sshx.handle_copyid') as m:
+            sshx.invoke(['copyid', IDENTITY2, NAME1, '-v', NAME2])
+            m.assert_called_with(NAME1, IDENTITY2, via=NAME2)
+
 
 global_test_init()
 

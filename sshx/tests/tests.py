@@ -18,6 +18,7 @@ from ..const import STATUS_SUCCESS, STATUS_FAIL
 BASEDIR = os.path.dirname(__file__)
 
 NOIDENTITY = ''
+PUBKEY = 'identity.pub'
 
 NAME1 = 'name1'
 HOST1 = 'host1'
@@ -624,6 +625,34 @@ class SpawnCommandTest(unittest.TestCase):
         _assert_called_with(m, command)
         _assert_file_contains(self, SSH_CONFIG_FILE,
                               [f'Host {NAME4}', f'Host {NAME5}'])
+
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_copyid(self, m):
+        '''sshx copyid <PUBKEY> <NAME1>'''
+        sshx.handle_copyid(NAME1, PUBKEY)
+        command = sshwrap._SSH_COPYID.format(
+            user=USER1, host=HOST1, port=PORT1,
+            identity=PUBKEY, extras='')
+        _assert_called_with(m, command)
+
+    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
+    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
+    @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
+    @mock.patch('pexpect.spawn', autospec=True)
+    def test_copyid_via(self, m, m_find, m_interact, m_uuid, m_del):
+        '''sshx copyid <PUBKEY> <NAME1> -v <NAME4>,<NAME5>'''
+        sshx.handle_copyid(NAME1, PUBKEY, via=f'{NAME4},{NAME5}')
+
+        command1 = sshwrap._SSH_COMMAND_CONFIG.format(
+            name=NAME5, extras=f'-NT -F {SSH_CONFIG_FILE}', cmd='', jump='',
+            forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}')
+        _assert_file_contains(self, SSH_CONFIG_FILE, f'Host {NAME4}')
+
+        command2 = sshwrap._SSH_COPYID.format(
+            user=USER1, host=sshwrap.LOCALHOST, port=LOCALPORT,
+            identity=PUBKEY, extras='')
+        _assert_called_with_n(self, m, (command1, command2))
 
 
 global_test_init()
