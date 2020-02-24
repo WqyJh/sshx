@@ -369,6 +369,15 @@ def _assert_called_with_n(self, m, commands):
         self.assertEqual(c, call(utils.format_command(command)))
 
 
+def _assert_file_contains(self, file, token):
+    with open(file, 'r') as f:
+        if type(token) == str:
+            self.assertTrue(token in f.read())
+        else:
+            content = f.read()
+            self.assertTrue(all([t in content for t in token]))
+
+
 class SpawnCommandTest(unittest.TestCase):
     def setUp(self):
         _patch_all_sshx_handle()
@@ -429,47 +438,35 @@ class SpawnCommandTest(unittest.TestCase):
         )
         _assert_called_with(m, command)
 
-    @mock.patch('pexpect.spawn', autospec=True)
-    def test_connect_via(self, m):
-        '''sshx connect <NAME1> -v <NAME4>'''
-        sshx.handle_connect(NAME1, via=NAME4)
-        command = sshwrap._SSH_COMMAND_PASSWORD.format(
-            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='', forwards='', cmd='',
-            jump=f'-J {USER4}@{HOST4}:{PORT4}'
-        )
-        _assert_called_with(m, command)
-
-        '''sshx connect <NAME2> -v <NAME4>,<NAME5>'''
-        sshx.handle_connect(NAME2, via=f'{NAME4},{NAME5}')
-        command = sshwrap._SSH_COMMAND_IDENTITY.format(
-            user=USER2, host=HOST2, port=PORT2, identity=IDENTITY2,
-            extras='', forwards='', cmd='',
-            jump=f'-J {USER4}@{HOST4}:{PORT4},{USER5}@{HOST5}:{PORT5}'
-        )
-        _assert_called_with(m, command)
-
+    # mock the __del__ to avoid deleting config file
+    # mock the uuid to set the config file
+    # mock spawn to get the executed command
+    @mock.patch('sshx.sshwrap.AccountChain.__del__')
     @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_connect_via_config(self, m, m_uuid):
+    def test_connect_via(self, m, m_uuid, m_del):
         '''sshx connect <NAME1> -v <NAME2>'''
         sshx.handle_connect(NAME1, via=f'{NAME2}')
         command = sshwrap._SSH_COMMAND_CONFIG.format(
             name=NAME1, extras=f'-F {SSH_CONFIG_FILE}',
             forwards='', cmd='', jump='')
         _assert_called_with(m, command)
+        _assert_file_contains(self, SSH_CONFIG_FILE, f'Host {NAME2}')
 
-        '''sshx connect <NAME1> -v <NAME2>,<NAME3>'''
-        sshx.handle_connect(NAME1, via=f'{NAME2},{NAME3}')
+        '''sshx connect <NAME1> -v <NAME3>,<NAME4>'''
+        sshx.handle_connect(NAME1, via=f'{NAME3},{NAME4}')
         command = sshwrap._SSH_COMMAND_CONFIG.format(
             name=NAME1, extras=f'-F {SSH_CONFIG_FILE}',
             forwards='', cmd='', jump='')
         _assert_called_with(m, command)
+        _assert_file_contains(
+            self, SSH_CONFIG_FILE,
+            [f'Host {NAME3}', f'Host {NAME4}',
+             f'IdentityFile {IDENTITY3}'])
 
     @mock.patch('sshx.sshwrap.SSHPexpect.daemonize', return_value=False)
-    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_forward(self, m, m_interact, m_daemon):
+    def test_forward(self, m, m_daemon):
         '''sshx forward <NAME1> -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,))
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
@@ -488,24 +485,26 @@ class SpawnCommandTest(unittest.TestCase):
         _assert_called_with(m, command)
         m_daemon.assert_called_once()
 
-    @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
+    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_forward_via(self, m, m_interact):
+    def test_forward_via(self, m, m_uuid, m_del):
         '''sshx forward <NAME1> -v <NAME4> -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,), via=NAME4)
-        command = sshwrap._SSH_COMMAND_PASSWORD.format(
-            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER4}@{HOST4}:{PORT4}', cmd='',
-        )
+        command = sshwrap._SSH_COMMAND_CONFIG.format(
+            name=NAME1, extras=f'-NT -F {SSH_CONFIG_FILE}',
+            forwards=f'-L {FORWARD1}', cmd='', jump='')
         _assert_called_with(m, command)
+        _assert_file_contains(self, SSH_CONFIG_FILE, f'Host {NAME4}')
 
         '''sshx forward <NAME1> -v <NAME4>,<NAME5> -f <FORWARD1>'''
         sshx.handle_forward(NAME1, maps=(FORWARD1,), via=f'{NAME4},{NAME5}')
-        command = sshwrap._SSH_COMMAND_PASSWORD.format(
-            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-NT', forwards=f'-L {FORWARD1}', jump=f'-J {USER4}@{HOST4}:{PORT4},{USER5}@{HOST5}:{PORT5}', cmd='',
-        )
+        command = sshwrap._SSH_COMMAND_CONFIG.format(
+            name=NAME1, extras=f'-NT -F {SSH_CONFIG_FILE}',
+            forwards=f'-L {FORWARD1}', cmd='', jump='')
         _assert_called_with(m, command)
+        _assert_file_contains(self, SSH_CONFIG_FILE,
+                              [f'Host {NAME4}', f'Host {NAME5}'])
 
     @mock.patch('pexpect.spawn', autospec=True)
     def test_scp(self, m):
@@ -517,45 +516,27 @@ class SpawnCommandTest(unittest.TestCase):
         )
         _assert_called_with(m, command)
 
-    @mock.patch('pexpect.spawn', autospec=True)
-    def test_scp_via(self, m):
-        '''sshx scp -v <NAME4> <DIR1> <NAME1>:<DIR2>'''
-        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=NAME4)
-        command = sshwrap._SCP_COMMAND_PASSWORD.format(
-            port=PORT1, jump=f'-oProxyJump={USER4}@{HOST4}:{PORT4}',
-            src=DIR1, dst=f'{USER1}@{HOST1}:{DIR2}',
-        )
-        _assert_called_with(m, command)
-
-        '''sshx scp -v <NAME4>,<NAME5> <DIR1> <NAME1>:<DIR2>'''
-        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=f'{NAME4},{NAME5}')
-        command = sshwrap._SCP_COMMAND_PASSWORD.format(
-            port=PORT1, jump=f'-oProxyJump={USER4}@{HOST4}:{PORT4},{USER5}@{HOST5}:{PORT5}',
-            src=DIR1, dst=f'{USER1}@{HOST1}:{DIR2}',
-        )
-        _assert_called_with(m, command)
-
+    @mock.patch('sshx.sshwrap.AccountChain.__del__')
     @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_scp_via_config(self, m, m_uuid):
-        '''sshx scp -v <NAME2> <DIR1> <NAME1>:<DIR2>'''
-        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=NAME2)
+    def test_scp_via(self, m, m_uuid, m_del):
+        '''sshx scp -v <NAME4> <DIR1> <NAME1>:<DIR2>'''
+        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=NAME4)
         command = sshwrap._SCP_COMMAND_CONFIG.format(
-            src=DIR1, dst=f'{NAME1}:{DIR2}',
-            extras=f'-F {SSH_CONFIG_FILE}'
-        )
+            name=NAME1, extras=f'-F {SSH_CONFIG_FILE}', jump='',
+            src=DIR1, dst=f'{NAME1}:{DIR2}')
         _assert_called_with(m, command)
-        m_uuid.assert_called_once()
-        m_uuid.reset_mock()
+        _assert_file_contains(self, SSH_CONFIG_FILE, f'Host {NAME4}')
 
-        '''sshx scp -v <NAME2>,<NAME3> <DIR1> <NAME1>:<DIR2>'''
-        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=f'{NAME2},{NAME3}')
+        '''sshx scp -v <NAME3>,<NAME4> <DIR1> <NAME1>:<DIR2>'''
+        sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=f'{NAME3},{NAME4}')
         command = sshwrap._SCP_COMMAND_CONFIG.format(
-            src=DIR1, dst=f'{NAME1}:{DIR2}',
-            extras=f'-F {SSH_CONFIG_FILE}'
-        )
+            name=NAME1, extras=f'-F {SSH_CONFIG_FILE}', jump='',
+            src=DIR1, dst=f'{NAME1}:{DIR2}')
         _assert_called_with(m, command)
-        m_uuid.assert_called_once()
+        _assert_file_contains(self, SSH_CONFIG_FILE,
+                              [f'Host {NAME3}', f'Host {NAME4}',
+                               f'IdentityFile {IDENTITY3}'])
 
     @mock.patch('pexpect.spawn', autospec=True)
     def test_scp2(self, m):
@@ -586,18 +567,22 @@ class SpawnCommandTest(unittest.TestCase):
 
         _assert_called_with_n(self, m, (command1, command2))
 
+    # mock interactive to pretend the forwarding was successfully established,
+    # otherwise interactive would failed because there's no real ssh connection.
+    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_scp2_via2(self, m, m_findport, m_interact):
+    def test_scp2_via2(self, m, m_findport, m_interact, m_uuid, m_del):
         '''sshx scp2 -v <NAME4>,<NAME5> <DIR1> <NAME1>:<DIR2>'''
         sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}',
                         via=f'{NAME4},{NAME5}', with_forward=True)
 
-        command1 = sshwrap._SSH_COMMAND_PASSWORD.format(
-            user=USER5, host=HOST5, port=PORT5, identity=IDENTITY4,
-            extras='-NT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump=f'-J {USER4}@{HOST4}:{PORT4}', cmd='',
-        )
+        command1 = sshwrap._SSH_COMMAND_CONFIG.format(
+            name=NAME5, extras=f'-NT -F {SSH_CONFIG_FILE}', cmd='', jump='',
+            forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}')
+        _assert_file_contains(self, SSH_CONFIG_FILE, f'Host {NAME4}')
 
         command2 = sshwrap._SCP_COMMAND_PASSWORD.format(
             port=LOCALPORT, jump='',
@@ -619,24 +604,26 @@ class SpawnCommandTest(unittest.TestCase):
 
     @mock.patch('pexpect.spawn', autospec=True)
     def test_exec(self, m):
-        '''sshx exec <NAME1> -- <COMMAND1>'''
-        sshx.handle_exec(NAME1, cmd=COMMAND1.split())
+        '''sshx exec --tty <NAME1> -- <COMMAND1>'''
+        sshx.handle_exec(NAME1, cmd=COMMAND1.split(), tty=True)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
             extras='-t', forwards='', jump='', cmd=COMMAND1,
         )
         _assert_called_with(m, command)
 
+    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('pexpect.spawn', autospec=True)
-    def test_exec_via(self, m):
+    def test_exec_via(self, m, m_uuid, m_del):
         '''sshx exec <NAME1> -v <NAME4>,<NAME5> -- <COMMAND1>'''
         sshx.handle_exec(NAME1, cmd=COMMAND1.split(), via=f'{NAME4},{NAME5}')
-        command = sshwrap._SSH_COMMAND_PASSWORD.format(
-            user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-t', forwards='', cmd=COMMAND1,
-            jump=f'-J {USER4}@{HOST4}:{PORT4},{USER5}@{HOST5}:{PORT5}'
-        )
+        command = sshwrap._SSH_COMMAND_CONFIG.format(
+            name=NAME1, extras=f'-F {SSH_CONFIG_FILE}',
+            forwards='', cmd=COMMAND1, jump='')
         _assert_called_with(m, command)
+        _assert_file_contains(self, SSH_CONFIG_FILE,
+                              [f'Host {NAME4}', f'Host {NAME5}'])
 
 
 global_test_init()

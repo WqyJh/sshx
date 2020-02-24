@@ -252,7 +252,7 @@ def handle_socks(name, via='', bind=1080, background=False):
                           tty=False, background=background, execute=False)
 
 
-def handle_exec(name, via='', tty=True, cmd=[]):
+def handle_exec(name, via='', tty=False, cmd=[]):
     _cmd = ' '.join(cmd)
     extras = '-t' if tty else ''
     return handle_connect(name, via=via, extras=extras, cmd=_cmd)
