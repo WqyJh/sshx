@@ -21,4 +21,4 @@ Supported platforms
 Requirements
 ------------
 - Python >= 3.6
-- openssh-clients: `ssh`, `scp`, `ssh-keygen`
+- openssh-clients: ``ssh``, ``scp``, ``ssh-keygen``
