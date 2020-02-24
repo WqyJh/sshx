@@ -8,6 +8,12 @@ DEF_PASSWORD = ''
 DEF_IDENTITY = ''
 DEF_VIA = ''
 
+_TEMPLATE = '''Host {name}
+    User {user}
+    HostName {host}
+    Port {port}
+'''
+
 
 class Account(object):
     def __init__(self, name, user=DEF_USER, host=DEF_HOST, port=DEF_PORT,
@@ -56,16 +62,20 @@ class Account(object):
         Host host1
             User root
             HostName 172.17.0.2
+            Port 22
             IdentityFile /tmp/id_rsa
             ProxyCommand ssh -F {config} -W %h:%p host2
         '''
 
-        c = f'''Host {self.name}\n\tUser {self.user}\n\tHostName {self.host}\n'''
+        c = _TEMPLATE.format(name=self.name, user=self.user,
+                             host=self.host, port=self.port)
         if self.identity:
-            c += f'''\tIdentityFile {self.identity}\n'''
+            c += f'\tIdentityFile {self.identity}\n'
+        else:
+            c += '\tPreferredAuthentications password\n'
         via = via or self.via
         if via:
-            c += f'''\tProxyCommand ssh -F {{config}} -W %h:%p {via}'''
+            c += f'\tProxyCommand ssh -F {{config}} -W %h:%p {via}'
         return c
 
 

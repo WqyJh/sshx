@@ -114,7 +114,7 @@ class CommandTest(unittest.TestCase):
     def test_connect(self):
         with mock.patch('sshx.sshx.handle_connect') as m:
             sshx.invoke(['connect', NAME1])
-            m.assert_called_with(NAME1, via=None)
+            m.assert_called_with(NAME1, via=None, extras='')
 
     def test_forward(self):
         rc = sshx.invoke(['forward', NAME1])

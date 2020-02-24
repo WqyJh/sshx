@@ -418,8 +418,9 @@ def command_show(name, password):
 @cli.command('connect', help='Connect with specified account.')
 @click.argument('name')
 @click.option('-v', '--via', help='Account name of jump host.')
-def command_connect(name, via):
-    return handle_connect(name, via=via)
+@click.option('-e', '--extras', default='', help='Extra arguments for ssh.')
+def command_connect(name, via, extras):
+    return handle_connect(name, via=via, extras=extras)
 
 
 @cli.command('forward', help='SSH port forward via specified account.')
