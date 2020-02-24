@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/WqyJh/sshx.svg?branch=master)](https://travis-ci.org/WqyJh/sshx)
 [![codecov](https://codecov.io/gh/WqyJh/sshx/branch/master/graph/badge.svg)](https://codecov.io/gh/WqyJh/sshx)
 [![license](https://img.shields.io/badge/LICENCE-GPLv3-brightgreen.svg)](https://raw.githubusercontent.com/WqyJh/sshx/master/LICENSE)
-[![Docs Status](https://readthedocs.org/projects/sshx/badge/?version=latest)](https://readthedocs.org/projects/sshx/badge/?version=latest)
+[![Docs Status](https://readthedocs.org/projects/sshx/badge/?version=latest)](https://sshx.readthedocs.io/en/latest/)
 
 
 sshx is a lightweight wrapper for ssh/scp command, which has the following features:
