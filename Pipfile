@@ -13,6 +13,8 @@ pipenv = "*"
 twine = "*"
 mock = "*"
 codecov = "*"
+sphinx = "*"
+sphinx-rtd-theme = "*"
 
 [packages]
 itsdangerous = "*"
