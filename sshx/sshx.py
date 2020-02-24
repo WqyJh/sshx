@@ -1,5 +1,3 @@
-import os
-import re
 import sys
 import time
 import click
@@ -17,7 +15,7 @@ from .const import STATUS_SUCCESS, STATUS_FAIL
 
 
 RETRY = 0
-RETRY_INTERVAL = 0
+RETRY_INTERVAL = 5
 
 
 def handle_init(force=False, security=False):
@@ -151,7 +149,8 @@ def handle_update(name, update_fields):
         # unset identity
         update_fields['passphrase'] = ''
         if not account.password and not 'password' in update_fields:
-            logger.info(f'Identity was unset but no password was set, please set an password for account {account.name}')
+            logger.info(
+                f'Identity was unset but no password was set, please set an password for account {account.name}')
             update_fields['password'] = utils.read_password()
 
     account.update(update_fields)
@@ -209,32 +208,12 @@ def handle_connect(name, via='', forwards=None, extras='', detach=False,
         logger.error(c.MSG_ACCOUNT_NOT_FOUND)
         return STATUS_FAIL
 
-    retry = RETRY
     via = via or account.via
 
-    while True:
-        ret = sshwrap.ssh(
-            account, vias=via, forwards=forwards, extras=extras, detach=detach,
-            tty=tty, background=background, execute=execute, cmd=cmd)
-        if not RETRY:
-            return ret
-
-        if ret == STATUS_SUCCESS:
-            break
-
-        logger.debug(f'retry: {retry} retry_interval: {RETRY_INTERVAL}s')
-
-        if retry == 0:
-            break
-        elif retry == 'always':
-            time.sleep(RETRY_INTERVAL)
-            continue
-        elif retry > 0:
-            retry -= 1
-            time.sleep(RETRY_INTERVAL)
-            continue
-
-    return STATUS_SUCCESS
+    return sshwrap.ssh(
+        account, vias=via, forwards=forwards, extras=extras, detach=detach,
+        tty=tty, background=background, execute=execute, cmd=cmd,
+        retry=RETRY, retry_interval=RETRY_INTERVAL)
 
 
 def handle_forward(name, maps=None, rmaps=None, via='', background=False):
@@ -322,7 +301,7 @@ class SortedGroup(click.Group):
 @click.option('--forever', is_flag=True, help='Keep ssh connection forever.')
 @click.option('--retry', type=RETRY_TYPE, default=0,
               help='Reconnect after connection closed, repeat for retry times. Supported values are "always" or non negative integer. If retry was enabled, --interval must be greater than 0.')
-@click.option('--retry-interval', type=click.IntRange(min=0), default=0,
+@click.option('--retry-interval', type=click.IntRange(min=0), default=5,
               help='Sleep seconds before every retry.')
 def cli(debug, interval, countmax, forever, retry, retry_interval):
     set_debug(debug)
