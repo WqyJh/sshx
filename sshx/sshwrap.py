@@ -263,21 +263,21 @@ class SSHPexpect(object):
                 if r == 0:
                     logger.error(c.MSG_CONNECTION_TIMED_OUT)
                     return False
-                if r == 1:
+                elif r == 1:
                     logger.error(c.MSG_CONNECTION_ERROR)
                     return False
-                if r == 2:
+                elif r == 2:
                     self.p.sendline('yes')
                     continue
-                if r == 3:
+                elif r == 3:
                     logger.error(c.MSG_AUTH_FAILED)
                     return False
-
-                self.p.sendline(password)
-                try:
-                    password = next(it)
-                except StopIteration:
-                    break
+                else:
+                    self.p.sendline(password)
+                    try:
+                        password = next(it)
+                    except StopIteration:
+                        break
         return True
 
     def drain_child_buffer(self):
