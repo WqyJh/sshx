@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/WqyJh/sshx.svg?branch=master)](https://travis-ci.org/WqyJh/sshx)
 [![codecov](https://codecov.io/gh/WqyJh/sshx/branch/master/graph/badge.svg)](https://codecov.io/gh/WqyJh/sshx)
 [![license](https://img.shields.io/badge/LICENCE-GPLv3-brightgreen.svg)](https://raw.githubusercontent.com/WqyJh/sshx/master/LICENSE)
-[![Docs Status](https://readthedocs.org/projects/sshx/badge/?version=master)](https://readthedocs.org/projects/sshx/badge/?version=master)
+[![Docs Status](https://readthedocs.org/projects/sshx/badge/?version=latest)](https://readthedocs.org/projects/sshx/badge/?version=latest)
 
 
 sshx is a lightweight wrapper for ssh/scp command, which has the following features:
@@ -16,7 +16,7 @@ sshx is a lightweight wrapper for ssh/scp command, which has the following featu
 - Copy files from/to your account with a short command, without typing password
 - Enable jump host for your scp connection
 
-Read full documentation on [ReadTheDocs](https://sshx.readthedocs.io/en/master/).
+Read full documentation on [ReadTheDocs](https://sshx.readthedocs.io/en/latest/).
 
 
 ## Installation
