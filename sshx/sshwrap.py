@@ -129,11 +129,17 @@ class AccountChain(object):
         return any(map(lambda a: a.identity, self.chain))
 
     def need_config(self):
-        if len(self.chain) > 1:
-            for a in self.chain[:-1]:
-                if a.identity:
-                    return True
-        return False
+        '''If have jump hosts, then need to use ssh_config.
+
+        According to https://www.openssh.com/releasenotes.html,
+        `ProxyJump` and `-J` option was released on OpenSSH 7.3,
+        while `ProxyCommand` showed on OpenSSH 3.6, which means the
+        latter has better compatibility. Therefore, we choose to
+        use `ProxyCommand` for jump hosts.
+        When it comes to multiple jump hosts, it's hard to specify
+        them all in command line, which is why we need to use ssh_config.
+        '''
+        return len(self.chain) > 1
 
     def get_config(self):
         config_list = [_SSH_CONFIG_GLOBAL] + \
