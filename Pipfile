@@ -15,14 +15,16 @@ mock = "*"
 codecov = "*"
 sphinx = "*"
 sphinx-rtd-theme = "*"
+pytest = "*"
 
 [packages]
 itsdangerous = "*"
 pexpect = "*"
-paramiko = "*"
 click = "*"
 lazy-object-proxy = "*"
 psutil = "*"
+future-fstrings = "*"
+#future-fstrings = {version = "*", markers="python_version < '3.6'"}
 
 [requires]
 python_version = "3.6"

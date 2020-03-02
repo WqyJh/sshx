@@ -3,7 +3,7 @@ Development
 
 Install requirements. ::
 
-    pipenv install
+    pipenv install --dev
 
 Then activate the virtual environment created by pipenv. ::
 
@@ -11,7 +11,7 @@ Then activate the virtual environment created by pipenv. ::
 
 Run unittests. ::
 
-    python setup.py test
+    pytest
 
 Build packages. ::
 

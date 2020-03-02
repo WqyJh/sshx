@@ -1,3 +1,5 @@
+# -*- coding: future_fstrings -*-
+
 import os
 import io
 import stat

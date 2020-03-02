@@ -1,3 +1,5 @@
+# -*- coding: future_fstrings -*-
+
 import sys
 import time
 import click
@@ -426,9 +428,9 @@ def command_connect(name, via, extras):
 @cli.command('forward', help='SSH port forward via specified account.')
 @click.argument('name')
 @click.option('-v', '--via', help='Account name of jump host.')
-@click.option('-f', '--forward', multiple=True,
+@click.option('-L', '-f', '--forward', multiple=True,
               help='[bind_address]:<bind_port>:<remote_address>:<remote_port> => Forward local bind_address:bind_port to remote_address:remote_port.')
-@click.option('-rf', '--rforward', multiple=True,
+@click.option('-R', '-rf', '--rforward', multiple=True,
               help='<bind_address>:<bind_port>:<local_address>:<local_port> => Forward remote bind_address:bind_port to local local_address:local_port.')
 @click.option('-b', '--background', is_flag=True,
               help='Run in background.')

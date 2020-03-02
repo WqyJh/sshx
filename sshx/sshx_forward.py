@@ -1,3 +1,5 @@
+# -*- coding: future_fstrings -*-
+
 class Forward(object):
     def __init__(self, maps, local_forward):
         self.maps = ''
