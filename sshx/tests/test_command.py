@@ -125,19 +125,19 @@ class CommandTest(unittest.TestCase):
         FORWARD1 = ':8000:127.0.0.1:8000'
         RFORWARD1 = '127.0.0.1:9000:127.0.0.1:9000'
         with mock.patch('sshx.sshx.handle_forward') as m:
-            sshx.invoke(['forward', NAME1, '-f', FORWARD1])
+            sshx.invoke(['forward', NAME1, '-L', FORWARD1])
             m.assert_called_with(NAME1, background=False,
                                  maps=(FORWARD1,), rmaps=(), via=None)
 
-            sshx.invoke(['forward', NAME1, '-rf', RFORWARD1])
+            sshx.invoke(['forward', NAME1, '-R', RFORWARD1])
             m.assert_called_with(NAME1, background=False,
                                  maps=(), rmaps=(RFORWARD1,), via=None)
 
-            sshx.invoke(['forward', NAME1, '-f', FORWARD1, '-rf', RFORWARD1])
+            sshx.invoke(['forward', NAME1, '-L', FORWARD1, '-R', RFORWARD1])
             m.assert_called_with(NAME1, background=False, maps=(
                 FORWARD1,), rmaps=(RFORWARD1,), via=None)
 
-            sshx.invoke(['forward', NAME1, '-f', FORWARD1, '-b'])
+            sshx.invoke(['forward', NAME1, '-L', FORWARD1, '-b'])
             m.assert_called_with(NAME1, background=True,
                                  maps=(FORWARD1,), rmaps=(), via=None)
 
