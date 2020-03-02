@@ -1,3 +1,5 @@
+# -*- coding: future_fstrings -*-
+
 from . import global_test_init
 import mock
 import unittest

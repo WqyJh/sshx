@@ -23,6 +23,8 @@ pexpect = "*"
 click = "*"
 lazy-object-proxy = "*"
 psutil = "*"
+future-fstrings = "*"
+#future-fstrings = {version = "*", markers="python_version < '3.6'"}
 
 [requires]
 python_version = "3.6"
