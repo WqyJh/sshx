@@ -15,11 +15,11 @@ mock = "*"
 codecov = "*"
 sphinx = "*"
 sphinx-rtd-theme = "*"
+pytest = "*"
 
 [packages]
 itsdangerous = "*"
 pexpect = "*"
-paramiko = "*"
 click = "*"
 lazy-object-proxy = "*"
 psutil = "*"
