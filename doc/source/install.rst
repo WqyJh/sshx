@@ -11,6 +11,7 @@ Supported platforms
 - Linux
 - macOS
 - WSL/cygwin/msys2 on Windows
+- Termux on Android
 
 **Attention:**
 
@@ -22,3 +23,15 @@ Requirements
 ------------
 - Python >= 3.6
 - openssh-clients: ``ssh``, ``scp``, ``ssh-keygen``
+
+
+Install on Android
+------------------
+
+First install latest Termux app (tested version 0.92) on your android device.
+
+Then install some requirements on termux shell. ::
+
+    pkg update
+    pkg in python openssh
+    pip install sshx
