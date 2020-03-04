@@ -78,19 +78,12 @@ _SCP_COMMAND_IDENTITY = 'scp -r \
 -oUserKnownHostsFile=/dev/null \
 -oExitOnForwardFailure=yes \
 -i {identity} {jump} -P {port} {src} {dst}'
-# _SCP_COMMAND = 'scp -r \
-# -o LogLevel=ERROR \
-# -oStrictHostKeyChecking=no \
-# -oUserKnownHostsFile=/dev/null \
-# -oExitOnForwardFailure=yes \
-# {extras} {jump} -P {port} {src} {dst}'
-_SCP_COMMAND_CONFIG = 'scp {extras} {src} {dst}'
+_SCP_COMMAND_CONFIG = 'scp -r {extras} {src} {dst}'
 _SSH_COPYID = 'ssh-copy-id \
 -o LogLevel=ERROR \
 -o StrictHostKeyChecking=no \
 -o UserKnownHostsFile=/dev/null \
 {extras} -i {identity} -p {port} {user}@{host}'
-# _SSH_COPYID_CONFIG = 'ssh-copy-id {extras} -i {identity} {name}'
 
 
 class AccountChain(object):
@@ -327,7 +320,7 @@ class SSHPexpect(object):
 
             # find the first non-empty character
             # block forever if not found
-            p.expect('\S', timeout=None)
+            p.expect(r'\S', timeout=None)
             p.write_to_stdout(p.after)
 
             p.interact(escape_character=None)
