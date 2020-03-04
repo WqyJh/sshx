@@ -1,6 +1,12 @@
 # Changelog
 
 
+## 0.32.1
+
+#### Fixes
+
+* add  for scp via jump hosts
+
 ## 0.32.0
 #### New Features
 
