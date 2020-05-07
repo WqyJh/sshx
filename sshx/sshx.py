@@ -311,7 +311,7 @@ class SortedGroup(click.Group):
               help='ServerAliveInterval for ssh_config.')
 @click.option('--countmax', type=click.IntRange(min=0), default=3,
               help='ServerAliveCountMax for ssh_config.')
-@click.option('--forever', is_flag=True, help='Keep ssh connection forever.')
+@click.option('--forever', is_flag=True, default=True, help='Keep ssh connection forever.')
 @click.option('--retry', type=RETRY_TYPE, default=0,
               help='Reconnect after connection closed, repeat for retry times. Supported values are "always" or non negative integer. If retry was enabled, --interval must be greater than 0.')
 @click.option('--retry-interval', type=click.IntRange(min=0), default=5,

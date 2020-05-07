@@ -43,3 +43,5 @@ times the connection would be closed (idle for 1800s). ::
     sshx --interval 30 --countmax 60 connect host1
 
 The ``--forever`` option is an alias for ``--interval 60 --countmax 52560000``, which means the ssh connection would be closed after idle for 100 years (long enough :). You can also set a value longer than ``--forever``.
+
+.. note:: The ``forever`` option is now a default option, which improves user experience.
