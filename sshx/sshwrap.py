@@ -62,6 +62,8 @@ _SSH_CONFIG_GLOBAL = '''Host *
 \tStrictHostKeyChecking no
 \tUserKnownHostsFile /dev/null
 \tExitOnForwardFailure yes
+\tServerAliveInterval {interval}
+\tServerAliveCountMax {countmax}
 '''
 _SSH_COMMAND_CONFIG = 'ssh {extras} {forwards} {name} {cmd}'
 _SSH_DEST = '{user}@{host}:{port}'
@@ -137,7 +139,10 @@ class AccountChain(object):
         return any(map(lambda a: a.identity, self.accounts))
 
     def get_config(self):
-        config_list = [_SSH_CONFIG_GLOBAL] + \
+        global_config = _SSH_CONFIG_GLOBAL.format(
+            interval=ServerAliveInterval,
+            countmax=ServerAliveCountMax)
+        config_list = [global_config] + \
             [a.to_ssh_config() for a in self.accounts]
         config = '\n'.join(config_list)
         self.config_file = os.path.join(cfg.CONFIG_DIR, str(uuid.uuid4()))
@@ -206,10 +211,6 @@ class SSHPexpect(object):
 
     def compile_extras(self):
         self.extras += self.compile_flags()
-
-        # keep alive config
-        if ServerAliveInterval > 0:
-            self.extras += f' -o ServerAliveInterval={ServerAliveInterval} -o ServerAliveCountMax={ServerAliveCountMax}'
 
     def compile_pure_command(self):
         account = self.account
