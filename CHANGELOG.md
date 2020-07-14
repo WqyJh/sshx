@@ -1,6 +1,15 @@
 # Changelog
 
 
+## 0.33.0
+#### New Features
+
+* enable --forever by default
+
+#### Fixes
+
+* fix crash of decryption with python 3.5
+
 ## 0.32.1
 
 #### Fixes
