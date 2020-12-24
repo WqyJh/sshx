@@ -81,3 +81,9 @@ def sshkey_check_passphrase(identity, passphrase):
 
     _, status = pexpect.run(cmd, withexitstatus=True)
     return status == 0
+
+def delete_file(filename):
+    try:
+        os.remove(filename)
+    except OSError as e:
+        logger.error(f'failed to delete "{filename}": {e}')
