@@ -93,15 +93,6 @@ class AccountChain(object):
         self.accounts = self.get_accounts(account, vias=vias)
         self.config_file = None
 
-    def __del__(self):
-        if self.config_file:
-            try:
-                logger.debug(f'deleting {self.config_file}')
-                os.remove(self.config_file)
-            except OSError as e:
-                logger.warning(
-                    f'error occurred while deleting {self.config_file}:\n{e}')
-
     def get_accounts(self, account, vias=None):
         if vias:
             accounts = [cfg.config.get_account(v, decrypt=True)
@@ -359,11 +350,19 @@ class SSHPexpect(object):
             if not self.auth():
                 return STATUS_FAIL
 
+            if self.need_config():
+                utils.delete_file(self.chain.config_file)
+
             return self.interactive()
         except Exception as e:
             logger.error(c.MSG_CONNECTION_ERROR)
             logger.debug(e)
             return STATUS_FAIL
+
+    def kill(self):
+        import signal
+        self.p.kill(signal.SIGTERM)
+        self.p.wait()
 
 
 class SCPPexpect(SSHPexpect):
@@ -443,7 +442,7 @@ class CmdWithForwarding(SSHPexpect):
 
         if self.forwarding:
             logger.debug('stop forwarding')
-            utils.kill_by_command(self.forwarding.command)
+            self.forwarding.kill()
 
         return ret
 
