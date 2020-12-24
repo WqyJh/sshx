@@ -365,6 +365,11 @@ class SSHPexpect(object):
             logger.debug(e)
             return STATUS_FAIL
 
+    def kill(self):
+        import signal
+        self.p.kill(signal.SIGTERM)
+        self.p.wait()
+
 
 class SCPPexpect(SSHPexpect):
     def __init__(self, account, targets, vias):
@@ -443,7 +448,7 @@ class CmdWithForwarding(SSHPexpect):
 
         if self.forwarding:
             logger.debug('stop forwarding')
-            utils.kill_by_command(self.forwarding.command)
+            self.forwarding.kill()
 
         return ret
 

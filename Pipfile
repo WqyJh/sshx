@@ -23,7 +23,6 @@ itsdangerous = "*"
 pexpect = "*"
 click = "*"
 lazy-object-proxy = "*"
-psutil = "*"
 future-fstrings = "*"
 
 [requires]

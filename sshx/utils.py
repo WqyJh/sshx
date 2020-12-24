@@ -61,21 +61,6 @@ def format_command(s):
     return ' '.join(s.split())
 
 
-def kill_by_command(command):
-    import psutil
-
-    for p in psutil.process_iter():
-        if p.name() in command:
-            if command in ' '.join(p.cmdline()):
-                p.terminate()
-                gone, alive = psutil.wait_procs([p], timeout=3)
-                if p in alive:
-                    p.kill()
-                    logger.debug(f'process killed: {command}')
-                else:
-                    logger.debug(f'process terminated: {command}')
-
-
 def sshkey_exists(identity):
     return os.path.isfile(identity)
 
@@ -90,14 +75,9 @@ def sshkey_check_passphrase(identity, passphrase):
         return passphrase == ''
 
     import pexpect
-    cmd = f'env SSH_ASKPASS=/bin/false ssh-keygen -y -f {identity}'
+    cmd = f'ssh-keygen -y -f {identity} -P "{passphrase}"'
 
     logger.debug(cmd)
 
-    p = pexpect.spawn(cmd)
-    r = p.expect([pexpect.EOF, 'passphrase:'])
-    if r == 0:
-        return False
-    p.sendline(passphrase)
-    p.wait()
-    return p.status == 0
+    _, status = pexpect.run(cmd, withexitstatus=True)
+    return status == 0
