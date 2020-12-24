@@ -444,7 +444,7 @@ class SpawnCommandTest(unittest.TestCase):
     # mock the __del__ to avoid deleting config file
     # mock the uuid to set the config file
     # mock spawn to get the executed command
-    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.utils.delete_file')
     @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('pexpect.spawn', autospec=True)
     def test_connect_via(self, m, m_uuid, m_del):
@@ -488,7 +488,7 @@ class SpawnCommandTest(unittest.TestCase):
         _assert_called_with(m, command)
         m_daemon.assert_called_once()
 
-    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.utils.delete_file')
     @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('pexpect.spawn', autospec=True)
     def test_forward_via(self, m, m_uuid, m_del):
@@ -519,7 +519,7 @@ class SpawnCommandTest(unittest.TestCase):
         )
         _assert_called_with(m, command)
 
-    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.utils.delete_file')
     @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('pexpect.spawn', autospec=True)
     def test_scp_via(self, m, m_uuid, m_del):
@@ -572,7 +572,7 @@ class SpawnCommandTest(unittest.TestCase):
 
     # mock interactive to pretend the forwarding was successfully established,
     # otherwise interactive would failed because there's no real ssh connection.
-    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.utils.delete_file')
     @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
@@ -615,7 +615,7 @@ class SpawnCommandTest(unittest.TestCase):
         )
         _assert_called_with(m, command)
 
-    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.utils.delete_file')
     @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('pexpect.spawn', autospec=True)
     def test_exec_via(self, m, m_uuid, m_del):
@@ -637,7 +637,7 @@ class SpawnCommandTest(unittest.TestCase):
             identity=PUBKEY, extras='')
         _assert_called_with(m, command)
 
-    @mock.patch('sshx.sshwrap.AccountChain.__del__')
+    @mock.patch('sshx.utils.delete_file')
     @mock.patch('sshx.sshwrap.uuid.uuid4', return_value=_SSH_CONFIG_FILE)
     @mock.patch('sshx.sshwrap.SSHPexpect.interactive', return_value=STATUS_SUCCESS)
     @mock.patch('sshx.sshwrap.find_available_port', return_value=LOCALPORT)
