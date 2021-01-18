@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.33.5 (2021-01-18)
+
+#### Fixes
+
+* fix keepalive options
+* fix keepalive options
+
+Full set of changes: [`0.33.3...0.33.5`](https://github.com/WqyJh/sshx/compare/0.33.3...0.33.5)
+
 ## 0.33.3 (2020-12-25)
 
 #### Fixes
@@ -7,6 +16,9 @@
 * fix unit tests
 * delete temp config file after command was executed
 * remove psutil for macOS
+#### Docs
+
+* udpate CHANGELOG.md
 
 Full set of changes: [`0.33.0...0.33.3`](https://github.com/WqyJh/sshx/compare/0.33.0...0.33.3)
 
