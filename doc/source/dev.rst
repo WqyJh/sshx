@@ -34,24 +34,25 @@ Before release a new version, maintainer must fully test the code to be released
 Version number should follow `Semantic Versioning <https://semver.org/>`_. Currently, I use `bumping <https://github.com/WqyJh/bumping>`_ to calculate the semver from git commit messages.
 
 
-**Step 1**: calculating the currently version, the output is the version value like ``0.27.1``. ::
+**Step 1**: Calculate the currently version, the output is the version value like ``0.27.1``. ::
 
     bumping
 
-**Step 2**: bump to new version and commit. ::
+**Step 2**: Bump to new version and commit. ::
 
     ./bump_version.sh <version>
 
-**Step 3**: generate changelog and commit. ::
+**Step 3**: Generate changelog and commit. Push the commits and wait for ci to be passed. ::
 
     auto-changelog --latest-version <version>
     git add -A
     git commit -m "docs: udpate CHANGELOG.md"
+    git push origin master
 
-**Step 4**: tag for new version. ::
+**Step 4**: Tag for new version. ::
 
     git tag <version>
 
-**Step 5**: push commits with tag. **Note** that the travis-ci would build sshx with tags and upload it to PyPI. ::
+**Step 5**: push the version tag and the travis-ci would build sshx with tags and upload it to PyPI. ::
 
     git push origin --tags release-<version>
