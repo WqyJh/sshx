@@ -323,14 +323,13 @@ def cli(debug, interval, countmax, forever, retry, retry_interval):
     RETRY = retry
     RETRY_INTERVAL = retry_interval
 
-    sshwrap.ServerAliveInterval = interval
-    sshwrap.ServerAliveCountMax = countmax
-
     if forever:
         # Set the alive time to 100 years, forever of life. :)
         # More likely, the connection would be closed by network issue.
-        sshwrap.ServerAliveInterval = 60
-        sshwrap.ServerAliveCountMax = 60 * 24 * 365 * 100
+        interval = 15
+        countmax = 4 * 60 * 24 * 365 * 100
+
+    sshwrap.set_keepalive(interval, countmax)
 
 
 @cli.command('init', help='Initialize the account storage.')

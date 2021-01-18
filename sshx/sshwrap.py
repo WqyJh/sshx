@@ -44,18 +44,20 @@ def sigwinch_passthrough(p):
     return _sigwinch_passthrough
 
 
+_SSH_KEEPALIVE = ' -o ServerAliveInterval={interval} -o ServerAliveCountMax={countmax}'
 _SSH_COMMAND_PASSWORD = 'ssh \
 -o PreferredAuthentications=password \
 -o LogLevel=ERROR \
 -o StrictHostKeyChecking=no \
 -o UserKnownHostsFile=/dev/null \
--oExitOnForwardFailure=yes \
+-o ExitOnForwardFailure=yes \
 {extras} {forwards} {jump} -p {port} {user}@{host} {cmd}'
 _SSH_COMMAND_IDENTITY = 'ssh \
+-o PreferredAuthentications=publickey \
 -o LogLevel=ERROR \
 -o StrictHostKeyChecking=no \
 -o UserKnownHostsFile=/dev/null \
--oExitOnForwardFailure=yes \
+-o ExitOnForwardFailure=yes \
 -i {identity} {extras} {forwards} {jump} -p {port} {user}@{host} {cmd}'
 _SSH_CONFIG_GLOBAL = '''Host *
 \tLogLevel ERROR
@@ -86,6 +88,13 @@ _SSH_COPYID = 'ssh-copy-id \
 -o StrictHostKeyChecking=no \
 -o UserKnownHostsFile=/dev/null \
 {extras} -i {identity} -p {port} {user}@{host}'
+
+
+def set_keepalive(interval, countmax):
+    global _SSH_COMMAND_PASSWORD, _SSH_COMMAND_IDENTITY, \
+        ServerAliveInterval, ServerAliveCountMax
+    ServerAliveInterval = interval
+    ServerAliveCountMax = countmax
 
 
 class AccountChain(object):
@@ -145,7 +154,7 @@ class AccountChain(object):
 
 
 class SSHPexpect(object):
-    def __init__(self, account, vias=None, forwards=None, extras='', tty=True, background=False, execute=True, cmd='', detach=False):
+    def __init__(self, account, vias=None, forwards=None, extras='', tty=True, background=False, execute=True, cmd='', detach=False, keepalive=True):
         self.account = account
         self.vias = vias
         self.forwards = forwards.compile() if forwards else ''
@@ -161,6 +170,7 @@ class SSHPexpect(object):
         self.detach = background and detach
         self.background = False if self.detach else background
         self.tty = False if self.detach else tty
+        self.keepalive = keepalive
 
         self.p = None
 
@@ -186,6 +196,9 @@ class SSHPexpect(object):
         '''
         return len(self.chain.accounts) > 1
 
+    def should_keepalive(self):
+        return self.keepalive and not self.need_config()
+
     def compile_command(self):
         self.chain = AccountChain(self.account, vias=self.vias)
         self.jump = self.chain.get_jump()
@@ -202,6 +215,11 @@ class SSHPexpect(object):
 
     def compile_extras(self):
         self.extras += self.compile_flags()
+        if self.should_keepalive():
+            self.extras += _SSH_KEEPALIVE.format(
+                interval=ServerAliveInterval,
+                countmax=ServerAliveCountMax,
+            )
 
     def compile_pure_command(self):
         account = self.account
@@ -367,7 +385,7 @@ class SSHPexpect(object):
 
 class SCPPexpect(SSHPexpect):
     def __init__(self, account, targets, vias):
-        super().__init__(account, vias=vias)
+        super().__init__(account, vias=vias, keepalive=False)
         self.targets = targets
         self.vias = vias
 
@@ -407,7 +425,7 @@ class CmdWithForwarding(SSHPexpect):
     def __init__(self, account, vias=None, forwards=None, extras='', tty=True, background=False, execute=True, cmd='', detach=False):
         super().__init__(account, vias=vias, forwards=forwards,
                          extras=extras, tty=tty, background=background,
-                         execute=execute, cmd=cmd, detach=detach)
+                         execute=execute, cmd=cmd, detach=detach, keepalive=False)
         self.forwarding = self.create_forwarding()
 
     def create_forwarding(self):
@@ -431,7 +449,7 @@ class CmdWithForwarding(SSHPexpect):
             self.vias = ''
             return SSHPexpect(
                 jump1, vias=vias, forwards=forwards,
-                tty=False, background=True, execute=False)
+                tty=False, background=True, execute=False, keepalive=False)
 
     def start_process(self):
         if self.forwarding:
@@ -486,9 +504,6 @@ class SSHCopyId(CmdWithForwarding):
         self.identity = identity
         super().__init__(account, vias=vias)
 
-    def need_config(self):
-        return False
-
     def compile_pure_command(self):
         account = self.account
         command = _SSH_COPYID.format(
@@ -502,15 +517,18 @@ class SSHCopyId(CmdWithForwarding):
 
     def interactive(self):
         p = self.p
-        r = p.expect([pexpect.TIMEOUT, pexpect.EOF, 'already exist on the remote system', 'added:'])
+        r = p.expect([pexpect.TIMEOUT, pexpect.EOF,
+                      'already exist on the remote system', 'added:'])
         if r == 0:
             logger.error(c.MSG_CONNECTION_TIMED_OUT)
         elif r == 1:
             logger.debug('EOF')
         elif r == 2:
-            logger.warning(f'Identity file "{self.identity} was already exists on the remote system.')
+            logger.warning(
+                f'Identity file "{self.identity} was already exists on the remote system.')
         elif r == 3:
-            logger.warning(f'Identity file "{self.identity} successfully installed.')
+            logger.warning(
+                f'Identity file "{self.identity} successfully installed.')
             return STATUS_SUCCESS
         return STATUS_FAIL
 
