@@ -429,7 +429,7 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_connect(NAME1)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='', forwards='', jump='', cmd='',
+            extras='-o ServerAliveInterval=15 -o ServerAliveCountMax=210240000', forwards='', jump='', cmd='',
         )
         _assert_called_with(m, command)
 
@@ -437,7 +437,7 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_connect(NAME2)
         command = sshwrap._SSH_COMMAND_IDENTITY.format(
             user=USER2, host=HOST2, port=PORT2, identity=IDENTITY2,
-            extras='', forwards='', jump='', cmd='',
+            extras='-o ServerAliveInterval=15 -o ServerAliveCountMax=210240000', forwards='', jump='', cmd='',
         )
         _assert_called_with(m, command)
 
@@ -474,7 +474,8 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_forward(NAME1, maps=(FORWARD1,))
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-NT', forwards=f'-L {FORWARD1}', jump='', cmd='',
+            extras='-NT -o ServerAliveInterval=15 -o ServerAliveCountMax=210240000',
+            forwards=f'-L {FORWARD1}', jump='', cmd='',
         )
         _assert_called_with(m, command)
         m_daemon.assert_not_called()
@@ -483,7 +484,8 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_forward(NAME1, maps=(FORWARD1,), background=True)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-NT', forwards=f'-L {FORWARD1}', jump='', cmd='',
+            extras='-NT -o ServerAliveInterval=15 -o ServerAliveCountMax=210240000',
+            forwards=f'-L {FORWARD1}', jump='', cmd='',
         )
         _assert_called_with(m, command)
         m_daemon.assert_called_once()
@@ -526,16 +528,16 @@ class SpawnCommandTest(unittest.TestCase):
         '''sshx scp -v <NAME4> <DIR1> <NAME1>:<DIR2>'''
         sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=NAME4)
         command = sshwrap._SCP_COMMAND_CONFIG.format(
-            name=NAME1, extras=f'-F {SSH_CONFIG_FILE}', jump='',
-            src=DIR1, dst=f'{NAME1}:{DIR2}')
+            name=NAME1, extras=f'-F {SSH_CONFIG_FILE}',
+            jump='', src=DIR1, dst=f'{NAME1}:{DIR2}')
         _assert_called_with(m, command)
         _assert_file_contains(self, SSH_CONFIG_FILE, f'Host {NAME4}')
 
         '''sshx scp -v <NAME3>,<NAME4> <DIR1> <NAME1>:<DIR2>'''
         sshx.handle_scp(DIR1, f'{NAME1}:{DIR2}', via=f'{NAME3},{NAME4}')
         command = sshwrap._SCP_COMMAND_CONFIG.format(
-            name=NAME1, extras=f'-F {SSH_CONFIG_FILE}', jump='',
-            src=DIR1, dst=f'{NAME1}:{DIR2}')
+            name=NAME1, extras=f'-F {SSH_CONFIG_FILE}',
+            jump='', src=DIR1, dst=f'{NAME1}:{DIR2}')
         _assert_called_with(m, command)
         _assert_file_contains(self, SSH_CONFIG_FILE,
                               [f'Host {NAME3}', f'Host {NAME4}',
@@ -560,7 +562,8 @@ class SpawnCommandTest(unittest.TestCase):
 
         command1 = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER4, host=HOST4, port=PORT4, identity=IDENTITY4,
-            extras='-NT', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump='', cmd='',
+            extras='-NT',
+            forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}', jump='', cmd='',
         )
 
         command2 = sshwrap._SCP_COMMAND_PASSWORD.format(
@@ -583,8 +586,8 @@ class SpawnCommandTest(unittest.TestCase):
                         via=f'{NAME4},{NAME5}', with_forward=True)
 
         command1 = sshwrap._SSH_COMMAND_CONFIG.format(
-            name=NAME5, extras=f'-NT -F {SSH_CONFIG_FILE}', cmd='', jump='',
-            forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}')
+            name=NAME5, extras=f'-NT -F {SSH_CONFIG_FILE}',
+            cmd='', jump='', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}')
         _assert_file_contains(self, SSH_CONFIG_FILE, f'Host {NAME4}')
 
         command2 = sshwrap._SCP_COMMAND_PASSWORD.format(
@@ -601,7 +604,8 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_socks(NAME1)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-D 1080 -NT', forwards='', jump='', cmd='',
+            extras='-D 1080 -NT -o ServerAliveInterval=15 -o ServerAliveCountMax=210240000',
+            forwards='', jump='', cmd='',
         )
         _assert_called_with(m, command)
 
@@ -611,7 +615,7 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_exec(NAME1, cmd=COMMAND1.split(), tty=True)
         command = sshwrap._SSH_COMMAND_PASSWORD.format(
             user=USER1, host=HOST1, port=PORT1, identity=NOIDENTITY,
-            extras='-t', forwards='', jump='', cmd=COMMAND1,
+            extras='-t -o ServerAliveInterval=15 -o ServerAliveCountMax=210240000', forwards='', jump='', cmd=COMMAND1,
         )
         _assert_called_with(m, command)
 
@@ -647,8 +651,8 @@ class SpawnCommandTest(unittest.TestCase):
         sshx.handle_copyid(NAME1, PUBKEY, via=f'{NAME4},{NAME5}')
 
         command1 = sshwrap._SSH_COMMAND_CONFIG.format(
-            name=NAME5, extras=f'-NT -F {SSH_CONFIG_FILE}', cmd='', jump='',
-            forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}')
+            name=NAME5, extras=f'-NT -F {SSH_CONFIG_FILE}',
+            cmd='', jump='', forwards=f'-L {sshwrap.LOCALHOST}:{LOCALPORT}:{HOST1}:{PORT1}')
         _assert_file_contains(self, SSH_CONFIG_FILE, f'Host {NAME4}')
 
         command2 = sshwrap._SSH_COPYID.format(
