@@ -22,7 +22,7 @@ project = 'sshx'
 copyright = '2020, WqyJh'
 author = 'WqyJh'
 
-version = '0.33.3'
+version = '0.33.5'
 release = version
 
 

@@ -38,26 +38,20 @@ Version number should follow `Semantic Versioning <https://semver.org/>`_. Curre
 
     bumping
 
-**Step 2**: checkout a release branch from master branch. ::
-
-    git checkout -b release-<version> master
-
-**Step 3**: bump to new version and commit. ::
+**Step 2**: bump to new version and commit. ::
 
     ./bump_version.sh <version>
 
-**Step 4**: generate changelog and commit. ::
+**Step 3**: generate changelog and commit. ::
 
     auto-changelog --latest-version <version>
     git add -A
     git commit -m "docs: udpate CHANGELOG.md"
 
-**Step 5**: tag for new version. ::
+**Step 4**: tag for new version. ::
 
     git tag <version>
 
-**Step 6**: push release branch. **Note** that the travis-ci would build sshx and upload it to PyPI on tags. ::
+**Step 5**: push commits with tag. **Note** that the travis-ci would build sshx with tags and upload it to PyPI. ::
 
     git push origin --tags release-<version>
-
-**Step 7**: open a pull request from release branch to master branch and merge it.
